@@ -1,0 +1,1 @@
+<section class="panel" style="padding:32px;max-width:650px"><span class="pill pill-danger">403 Access Denied</span><h2>This area requires Super Admin access.</h2><p>Contact an active Super Admin if you need access to these settings.</p><a class="button primary" href="<?= e(admin_url()) ?>">Back to Dashboard</a></section>

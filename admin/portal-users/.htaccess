@@ -1,0 +1,4 @@
+Options -Indexes
+<Files "_controller.php">
+Require all denied
+</Files>

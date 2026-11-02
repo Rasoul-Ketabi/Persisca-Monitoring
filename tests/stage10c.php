@@ -1,0 +1,76 @@
+<?php
+declare(strict_types=1);
+if (PHP_SAPI !== 'cli') {http_response_code(404);exit;}
+require dirname(__DIR__).'/bootstrap.php';
+$root=dirname(__DIR__);$tests=[];
+$read=static fn(string $f):string=>(string)file_get_contents($root.'/'.$f);
+$ok=static function(bool $pass,string $name)use(&$tests):void{$tests[]=[$pass,$name];echo ($pass?'PASS ':'FAIL ').$name.PHP_EOL;};
+$schema=$read('database/schema.sql');$patch=$read('database/patches/v0.2.2.sql');$svc=$read('app/Services/TelegramLinkManager.php');
+$notify=$read('app/Services/NotificationManager.php');$tg=$read('app/Services/TelegramNotifier.php');$web=$read('telegram/webhook/index.php');
+$portal=$read('account/_dispatch.php');$view=$read('app/Views/portal/page.php');$admin=$read('admin/_dispatch.php');
+$ok(trim($read('VERSION'))==='v0.2.2','Target version');
+$ok(str_contains($read('install/index.php'),"'installed_version', 'v0.2.2'"),'Fresh install metadata updated');
+foreach(['portal_users','portal_otp_codes','telegram_link_tokens','notification_logs','monitor_checks','incidents','maintenance_logs'] as $table) {
+    $ok(str_contains($schema,'CREATE TABLE IF NOT EXISTS '.$table),'Fresh schema retains '.$table);
+}
+foreach(['telegram_chat_id','telegram_user_id','telegram_username','telegram_connected_at','telegram_notifications_enabled'] as $field){
+    $ok(str_contains($schema,$field),'Fresh schema contains '.$field);
+    $ok(str_contains($patch,'ADD COLUMN '.$field),'Upgrade adds '.$field);
+}
+$ok(str_contains($schema,'UNIQUE KEY uniq_portal_telegram_user'),'Telegram identity unique per portal user');
+$ok(str_contains($schema,'UNIQUE KEY uniq_telegram_link_token_hash'),'Link token digest unique');
+$ok(str_contains($svc,'random_bytes(24)'),'Secure link token generation');
+$ok(str_contains($svc,"hash('sha256',$".'token'.')'),'Token hashed at rest');
+$ok(str_contains($svc,'INTERVAL 15 MINUTE'),'Link token 15-minute expiry');
+$ok(str_contains($svc,"consumed_at IS NULL AND t.expires_at>UTC_TIMESTAMP()"),'Token expiry and one-use check');
+$ok(str_contains($svc,'FOR UPDATE'),'Linking uses database row lock');
+$ok(str_contains($svc,"p.status='active'"),'Disabled user cannot link');
+$ok(str_contains($svc,"$"."chatId!==$"."userId"),'Chat must match Telegram user');
+$ok(str_contains($svc,'telegram_link_tokens SET consumed_at=UTC_TIMESTAMP()'),'Tokens invalidated on consume/restart');
+$ok(str_contains($svc,'telegram_chat_id=NULL'),'Disconnect clears saved association');
+$ok(str_contains($svc,'telegram_notifications_enabled=0'),'Disconnect turns personal alerts off');
+$ok(str_contains($svc,'TelegramNotifier::api($token, \'getMe\')'),'Bot username verified via getMe');
+$ok(str_contains($svc,"'setWebhook'"),'Webhook registration uses Bot API');
+$ok(str_contains($svc,"'secret_token'=>".'$secret'),'Webhook secret registered');
+$ok(str_contains($svc,'strtolower((string)($parts[\'scheme\']??\'\'))!==\'https\''),'Webhook HTTPS-only URL');
+$ok(str_contains($web,'MONITOR_NO_SESSION'),'No session on public callback');
+$ok(str_contains($web,'HTTP_X_TELEGRAM_BOT_API_SECRET_TOKEN'),'Webhook secret header');
+$ok(str_contains($web,'hash_equals($secret,$received)'),'Webhook timing-safe secret compare');
+$ok(str_contains($web,'REQUEST_METHOD')&&str_contains($web,"'POST'"),'Webhook POST only');
+$ok(str_contains($web,'32768'),'Webhook bounded payload');
+$ok(str_contains($svc,'($chat[\'type\']??\'\')!==\'private\''),'Only private Telegram chat can link');
+$ok(str_contains($svc,'!empty($from[\'is_bot\'])'),'Bot accounts cannot link');
+$ok(str_contains($svc,'consumeStart('),'One-time token consumption on /start');
+$ok(str_contains($portal,"$"."portalPage==='telegram'"),'Portal Telegram action guarded');
+$ok(str_contains($portal,'TelegramLinkManager::connect($uid)'),'Connect bound to current portal session');
+$ok(str_contains($portal,'TelegramLinkManager::disconnect($uid)'),'Disconnect bound to current portal session');
+$ok(str_contains($portal,'Security::requireCsrf()'),'Portal mutations CSRF');
+$ok(str_contains($view,'e($telegramConnectUrl)'),'Telegram link HTML escaped');
+$ok(str_contains($view,"portal_url('telegram')"),'Portal Telegram actions use folder routes');
+$ok(is_file($root.'/account/telegram/index.php'),'Portal Telegram physical route');
+$ok(str_contains($notify,'$ownerId=(int)($monitor[\'portal_user_id\']??0)'),'User notification selection owner bound');
+$ok(str_contains($notify,"WHERE id=? AND status='active'"),'Active owner resolved from DB');
+$ok(str_contains($notify,"'portal_user'"),'Personal recipient outbox rows created');
+$ok(str_contains($notify,"'admin_global'"),'Global recipient outbox rows preserved');
+$ok(str_contains($notify,'portal_user_id') && str_contains($notify,'portal_chat_id'),'Live ownership and connection checked before send');
+$ok(str_contains($notify,'portal_alerts'),'User preference checked before delivery');
+$ok(str_contains($notify,'telegram_notifications_enabled'),'Monitor preference checked before delivery');
+$ok(str_contains($notify,'attempt_count<3'),'Retry count capped');
+$ok(str_contains($notify,"['down','recovered']"),'Only incident transitions enqueue');
+$ok(str_contains($notify,'recipient_type')&&str_contains($notify,'recipient_id'),'Recipient scoped idempotency');
+$ok(str_contains($patch,'DROP INDEX uniq_notification_target_event'),'Replaces prior unique key safely');
+$ok(str_contains($patch,'uniq_notification_recipient_event'),'New recipient-aware unique key');
+$ok(str_contains($patch,"DEFAULT 'admin_global'"),'Historic global recipients preserved');
+$ok(str_contains($patch,'DEFAULT 0'),'Historic global recipient ID sentinel');
+$ok(!preg_match('/\b(?:TRUNCATE TABLE|DROP TABLE|DELETE FROM portal_users)\b/i',$patch),'No destructive data reset');
+$ok(str_contains($tg,'CURLOPT_SSL_VERIFYPEER=>true'),'Webhook API TLS verification');
+$ok(str_contains($read('app/Views/admin/notifications.php'),'configure_webhook'),'Admin setup control');
+$ok(str_contains($admin,"$"."action === 'configure_webhook'"),'Admin webhook POST handling');
+$ok(str_contains($read('app/Views/admin/portal-users.php'),"telegram_connected_at"),'Admin sees connection timestamp safely');
+$ok(!str_contains($read('app/Views/public/status.php'),'telegram_chat_id'),'No Telegram chat ID on public status');
+$ok(str_contains($read('app/Helpers/functions.php'),'|telegram'),'Telegram physical route compatible with subfolders');
+$ok(str_contains($read('app/Services/CronRunner.php'),'NotificationManager::deliverDue(3, $started + self::TARGET_SECONDS)'),'Cron attempt budget preserved');
+$ok(\Monitor\Services\TelegramNotifier::validChatIdShape('123456789'),'Numeric Telegram chat allowed');
+$ok(!\Monitor\Services\TelegramNotifier::validChatIdShape('<script>'),'HTML cannot be Telegram chat');
+$ok(\Monitor\Services\TelegramNotifier::escape('<bad>')==='&lt;bad&gt;','Message dynamic values escaped');
+$failed=count(array_filter($tests,static fn(array $t):bool=>!$t[0]));echo (count($tests)-$failed).'/'.count($tests).' passed'.PHP_EOL;exit($failed?1:0);

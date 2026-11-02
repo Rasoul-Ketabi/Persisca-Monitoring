@@ -1,0 +1,1 @@
+</main><footer class="app-footer"><span>© <?= date('Y') ?> <?= e($settings['company_name'] ?: $settings['app_name']) ?></span><span>Version <?= e(trim((string) file_get_contents(monitor_root() . '/VERSION'))) ?> <span class="footer-dot">•</span> Your monitoring workspace</span></footer></div></div></body></html>

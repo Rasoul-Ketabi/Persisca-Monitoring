@@ -1,0 +1,17 @@
+Options -Indexes
+DirectoryIndex index.php
+<IfModule mod_rewrite.c>
+RewriteEngine On
+RewriteRule ^(?:app|config|database|storage|cron|tests)(?:/|$) - [F,L,NC]
+RewriteRule ^(?:bootstrap\.php|VERSION|README\.md|.*\.md|\.env|\.git)(?:/|$) - [F,L,NC]
+RewriteRule ^\.(?:git|github|gitignore|gitattributes|editorconfig)(?:/|$) - [F,L,NC]
+RewriteRule ^(?:admin/_dispatch|account/_dispatch|admin/portal-users/_controller)\.php$ - [F,L,NC]
+# Personal status pages resolve internally to the existing status controller.
+RewriteRule ^status/([a-z0-9]+(?:-[a-z0-9]+)*)/?$ status/index.php?personal_slug=$1 [L,QSA,NC]
+RewriteRule ^assets/(.*)$ public/assets/$1 [L]
+RewriteRule ^$ public/index.php [L]
+RewriteRule ^install/?$ install/index.php [L]
+</IfModule>
+<FilesMatch "^(?:\.htaccess|\.user\.ini|\.env|VERSION|composer\.(?:json|lock))$">
+Require all denied
+</FilesMatch>

@@ -1,0 +1,84 @@
+<?php
+declare(strict_types=1);
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
+require dirname(__DIR__) . '/bootstrap.php';
+
+use Monitor\Services\IncidentManager;
+use Monitor\Services\MonitorInput;
+
+$root = monitor_root();
+$checks = [];
+$ok = static function (bool $condition, string $label) use (&$checks): void { $checks[] = [$condition, $label]; };
+$monitor = ['operational_status'=>'unknown','consecutive_failures'=>0,'failure_threshold'=>2,'failure_sequence_started_at'=>null];
+$first=IncidentManager::decide($monitor,false,'2026-10-31 12:00:00');
+$ok($first['transition'] === 'none', 'Initial failed check is not an incident');
+$ok($first['current_status'] === 'unknown', 'Unknown remains unknown below threshold');
+$ok($first['consecutive_failures'] === 1, 'First failure increments counter');
+$ok($first['failure_sequence_started_at'] === '2026-10-31 12:00:00', 'First failure timestamp retained');
+$monitor=array_merge($monitor,$first); $monitor['operational_status']=$first['current_status'];
+$second=IncidentManager::decide($monitor,false,'2026-10-31 12:05:00');
+$ok($second['transition'] === 'down', 'Second failure confirms Down');
+$ok($second['current_status'] === 'down', 'Operational status is Down');
+$ok($second['failure_sequence_started_at'] === '2026-10-31 12:00:00', 'Outage starts at initial failure');
+$monitor=array_merge($monitor,$second); $monitor['operational_status']=$second['current_status'];
+$third=IncidentManager::decide($monitor,false,'2026-10-31 12:10:00');
+$ok($third['transition'] === 'none', 'Additional failures do not generate duplicate Down transitions');
+$ok($third['consecutive_failures'] === 3, 'Third failure increments counter');
+$monitor=array_merge($monitor,$third); $monitor['operational_status']=$third['current_status'];
+$recovery=IncidentManager::decide($monitor,true,'2026-10-31 12:20:00');
+$ok($recovery['transition'] === 'recovered', 'One successful check triggers recovery');
+$ok($recovery['current_status'] === 'up', 'Recovery returns to Up');
+$ok($recovery['consecutive_failures'] === 0, 'Recovery resets failures');
+$ok($recovery['failure_sequence_started_at'] === null, 'Recovery clears failure start');
+$monitor=array_merge($monitor,$recovery); $monitor['operational_status']=$recovery['current_status'];
+$again=IncidentManager::decide($monitor,true,'2026-10-31 12:25:00');
+$ok($again['transition'] === 'none', 'Repeated success cannot cause another recovery');
+$one=IncidentManager::decide(['operational_status'=>'unknown','consecutive_failures'=>0,'failure_threshold'=>1],false,'2026-10-31 12:00:00');
+$ok($one['transition'] === 'down', 'Threshold 1 confirms immediate Down');
+$up = IncidentManager::decide(['operational_status'=>'up','consecutive_failures'=>0,'failure_threshold'=>3],false,'2026-10-31 12:00:00');
+$ok($up['transition'] === 'none' && $up['current_status'] === 'up', 'Confirmed Up is preserved below threshold');
+$clear=IncidentManager::decide(array_merge(['failure_threshold'=>3],$up),true,'2026-10-31 12:01:00');
+$ok($clear['consecutive_failures'] === 0 && $clear['current_status'] === 'up','Transient failure clears after success');
+$ok(duration_label(0) === '0 seconds','Duration handles zero');
+$ok(duration_label(1) === '1 second','Duration singularization');
+$ok(duration_label(120) === '2 minutes','Duration minutes');
+$ok(duration_label(4440) === '1 hour 14 minutes','Duration hours and minutes');
+$ok(duration_label(183600) === '2 days 3 hours','Duration multi-day');
+$ok(monitor_state(['is_active'=>0,'operational_status'=>'down']) === 'Paused', 'Paused configuration overrides displayed operational state');
+$ok(monitor_state(['is_active'=>1,'operational_status'=>'unknown']) === 'Unknown', 'Unknown displayed correctly');
+$ok(monitor_state(['is_active'=>1,'operational_status'=>'up']) === 'Up', 'Up displayed correctly');
+$ok(monitor_state(['is_active'=>1,'operational_status'=>'down']) === 'Down', 'Down displayed correctly');
+$good = ['name'=>'API','url'=>'https://example.org/','is_active'=>'1','check_interval_minutes'=>'5','timeout_seconds'=>'10','expected_status_codes'=>'200','retry_count'=>'2','retry_delay_seconds'=>'2','failure_threshold'=>'3'];
+$ok(MonitorInput::fromPost($good)['failure_threshold'] === 3, 'Form accepts configured failure threshold');
+$good['failure_threshold']='0';
+try { MonitorInput::fromPost($good); $ok(false,'Reject threshold zero'); } catch (InvalidArgumentException $e) { $ok(true,'Reject threshold zero'); }
+$good['failure_threshold']='6';
+try { MonitorInput::fromPost($good); $ok(false,'Reject threshold six'); } catch (InvalidArgumentException $e) { $ok(true,'Reject threshold six'); }
+$sql = file_get_contents($root . '/database/patches/v0.0.4.sql');
+$schema = file_get_contents($root . '/database/schema.sql');
+$ok(str_contains($sql,'CREATE TABLE IF NOT EXISTS incidents') && str_contains($schema,'CREATE TABLE IF NOT EXISTS incidents'),'Full and migration schema include incidents');
+$ok(str_contains($sql,'ADD COLUMN operational_status') && str_contains($schema,'operational_status VARCHAR'),'Operational status migration and fresh schema');
+$ok(str_contains($sql,'ADD COLUMN incident_id') && str_contains($schema,'incident_id BIGINT'),'Optional check incident associations');
+$ok(str_contains($sql,'ON DELETE CASCADE'),'Deletion cascades incident history');
+$ok(!str_contains($sql,'DROP TABLE') && !str_contains($sql,'TRUNCATE'),'Migration avoids destructive resets');
+$checkRepo=file_get_contents($root . '/app/Models/CheckRepository.php');
+$ok(str_contains($checkRepo,'FOR UPDATE') && str_contains($checkRepo,'IncidentManager::apply') && str_contains($checkRepo,'$pdo->commit()'),'State changes and check storage share a transaction');
+$ok(str_contains($checkRepo,'return $transition;'),'Persisted checks return structured transition payload');
+$ok(str_contains(file_get_contents($root . '/app/Models/MonitorRepository.php'),'failure_threshold'),'Monitor repository stores confirmation setting');
+$ok(str_contains(file_get_contents($root . '/app/Views/admin/monitor-form.php'),'Failure confirmation'),'Admin form exposes confirmation threshold');
+$ok(str_contains(file_get_contents($root . '/app/Views/admin/monitor-detail.php'),'Recent incidents'),'Monitor detail includes incidents');
+$ok(str_contains(file_get_contents($root . '/app/Views/admin/dashboard.php'),'Active incidents'),'Dashboard contains confirmed incident section');
+$ok(is_file($root . '/admin/incidents/view/index.php'),'Incident detail is a physical folder route');
+$ok(str_contains(file_get_contents($root . '/app/Views/admin/incidents.php'),'incidentPages'),'Incident history is paginated');
+$publicRepo=file_get_contents($root . '/app/Models/IncidentRepository.php');
+$ok(str_contains($publicRepo,'WHERE is_public = 1'),'Public monitor query excludes private monitors');
+$ok(str_contains($publicRepo,"m.is_public = 1"),'Public incident query excludes private incidents');
+$ok(!str_contains(file_get_contents($root . '/app/Services/IncidentManager.php'),'Telegram'),'Incident service does not depend on Telegram');
+$ok(!str_contains(file_get_contents($root . '/app/Views/public/status.php'),'99.99%'),'No fabricated uptime statistics');
+$ok(str_contains(file_get_contents($root . '/admin/_dispatch.php'),'Security::requireCsrf()'),'Admin POST CSRF protection preserved');
+$ok(str_contains(file_get_contents($root . '/install/index.php'),'v0.2.2'),'Installer version updated');
+$ok(trim(file_get_contents($root . '/VERSION'))==='v0.2.2','Version file updated');
+$passed=0;
+foreach ($checks as [$pass,$name]) { echo ($pass ? 'PASS ' : 'FAIL ') . $name . PHP_EOL; if($pass) $passed++; }
+echo $passed . '/' . count($checks) . ' passed' . PHP_EOL;
+exit($passed===count($checks)?0:1);

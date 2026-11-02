@@ -1,0 +1,39 @@
+name: Bug report
+description: Report a reproducible problem with Monitor
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include secrets, real OTP codes, database exports or personal data. Report security vulnerabilities privately using SECURITY.md."
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Exact Monitor version (for example v0.2.2)
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: PHP version, MySQL/MariaDB version, server type
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true

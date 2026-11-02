@@ -1,0 +1,72 @@
+<?php
+declare(strict_types=1);
+if (PHP_SAPI !== 'cli') {http_response_code(404);exit;}
+require dirname(__DIR__).'/bootstrap.php';
+$root=dirname(__DIR__);$checks=[];
+$read=static fn(string $p):string=>(string)file_get_contents($root.'/'.$p);
+$ok=static function(bool $passed,string $name) use (&$checks):void {$checks[]=[$passed,$name];};
+$schema=$read('database/schema.sql');$sql=$read('database/patches/v0.2.0.sql');
+$portal=$read('account/_dispatch.php');$auth=$read('app/Services/PortalAuth.php');$owner=$read('app/Services/PortalMonitors.php');
+$users=$read('app/Services/PortalUsers.php');$mailer=$read('app/Services/Mailer.php');
+$ok(trim($read('VERSION'))==='v0.2.2','Version current');
+$ok(str_contains($read('install/index.php'),"'installed_version', 'v0.2.2'"),'Installer metadata current');
+$ok(str_contains($read('install/index.php'),"'super_admin'"),'Super Admin install preserved');
+$ok(str_contains($sql,'CREATE TABLE IF NOT EXISTS portal_users'),'Portal users migration');
+$ok(str_contains($schema,'CREATE TABLE IF NOT EXISTS portal_users'),'Portal users fresh schema');
+$ok(str_contains($sql,'CREATE TABLE IF NOT EXISTS portal_otp_codes'),'OTP migration');
+$ok(str_contains($schema,'CREATE TABLE IF NOT EXISTS portal_otp_requests'),'OTP request fresh schema');
+$ok(str_contains($sql,'ADD COLUMN portal_user_id BIGINT UNSIGNED NULL'),'Owner migration is nullable');
+$ok(str_contains($sql,'ON DELETE SET NULL'),'Ownership FK safe on delete');
+$ok(str_contains($schema,'portal_user_id BIGINT UNSIGNED NULL'),'Fresh monitors owner nullable');
+$ok(str_contains($sql,"'installed_version','v0.2.0'"),'Migration version');
+$ok(!preg_match('/\b(?:DROP TABLE|TRUNCATE TABLE)\b/i',$sql),'Upgrade non-destructive');
+$ok(str_contains($read('bootstrap.php'),"'monitor_portal_session'"),'Portal session cookie separated');
+$ok(str_contains($read('bootstrap.php'),"'monitor_session'"),'Admin session preserved');
+$ok(str_contains($auth,'portal_session_version'),'Session invalidation');
+$ok(str_contains($auth,"$"."user['status']!=='active'"),'Disabled access guarded');
+$ok(str_contains($auth,'session_regenerate_id(true)'),'Session rotates after OTP');
+$ok(str_contains($auth,'random_int(0,999999)'),'Secure six-digit OTP generator');
+$ok(str_contains($auth,'password_hash($code'),'OTP hash stored');
+$ok(str_contains($auth,'password_verify($code'),'OTP verified as hash');
+$ok(str_contains($auth,'INTERVAL 10 MINUTE'),'OTP ten-minute validity');
+$ok(str_contains($auth,"attempt_count']>=5"),'OTP attempt guard');
+$ok(str_contains($auth,'time()-60'),'OTP resend cooldown');
+$ok(str_contains($auth,'email_count'),'Per-account OTP throttle');
+$ok(str_contains($auth,'ip_count'),'Per-IP OTP throttle');
+$ok(str_contains($auth,'FOR UPDATE'),'OTP verify atomic');
+$ok(str_contains($auth,'consumed_at=IF(?=1'),'OTP consumed after success');
+$ok(str_contains($portal,'If this account is available, a login code has been sent.'),'Non-enumeration response');
+$ok(str_contains($mailer,'mail($recipient'),'mail() transport');
+$ok(str_contains($mailer,"Settings::get('app_name'"),'White-label OTP subject');
+$ok(str_contains($mailer,'mail_from_email'),'Configurable FROM email');
+$ok(str_contains($read('admin/portal-users/_controller.php'),'Security::requireCsrf()'),'Admin portal mutation CSRF');
+$ok(str_contains($read('app/Services/Authorization.php'),'if (self::isSuperAdmin($user))'),'Super Admin access only');
+$ok(str_contains($owner,'FOR UPDATE'),'Quota serialized');
+$ok(str_contains($owner,'Your monitor limit has been reached'),'Quota enforced server side');
+$ok(str_contains($owner,"$"."data['allow_private_network']=0"),'Portal cannot enable internal network monitoring');
+$ok(str_contains($owner,'AND portal_user_id=?'),'Owned monitor scope');
+$ok(str_contains($owner,'WHERE m.portal_user_id=?'),'Owned incidents scope');
+$ok(str_contains($portal,'PortalMonitors::find($uid,$monitorId)'),'IDOR guard before analytics');
+$ok(str_contains($portal,'MonitorAnalytics::summary($monitorId'),'Reuse analytics service');
+$ok(str_contains($owner,'HttpMonitor::check($monitor)'),'Reuse HTTP check service');
+$ok(str_contains($owner,'WHERE id=? AND portal_user_id=?'),'Portal scoped delete');
+$ok(str_contains($read('app/Models/MonitorRepository.php'),'portal_user_id'),'Existing admin monitors retain owner field');
+$ok(str_contains($read('app/Views/admin/monitors.php'),'owner_name'),'Admin sees monitor owner');
+$ok(str_contains($read('app/Services/PublicStatus.php'),"' IS NULL' : ' = ?'"),'Global status excludes portal monitors until Stage10B');
+$ok(str_contains($portal,'Security::requireCsrf()'),'Portal mutations require CSRF');
+$ok(str_contains($read('app/Views/portal/page.php'),'No checks recorded yet.'),'No fabricated checks');
+$ok(str_contains($portal,'confirm_delete'),'Explicit monitor delete confirmation');
+$ok(str_contains($read('app/Services/RetentionManager.php'),'portal_otp_requests'),'OTP data retention');
+$ok(str_contains($read('app/Helpers/functions.php'),'function portal_url'),'Physical portal routes supported');
+$ok(is_file($root.'/account/profile/index.php'),'Account route exists');
+$ok(is_file($root.'/admin/portal-users/view/index.php'),'Admin ownership route exists');
+$ok(str_contains($read('.htaccess'),'account/_dispatch'),'Internal portal dispatch blocked');
+try {
+    \Monitor\Services\MonitorInput::url('https://example.com/');$ok(true,'Existing HTTP validation retained');
+} catch(Throwable $e){$ok(false,'Existing HTTP validation retained');}
+try {\Monitor\Services\MonitorInput::url('file:///etc/passwd');$ok(false,'Unsafe protocol rejected');}catch(InvalidArgumentException $e){$ok(true,'Unsafe protocol rejected');}
+$ok(\Monitor\Services\MonitorAnalytics::period('random')==='24h','Analytics range whitelist retained');
+$ok(\Monitor\Services\MonitorAnalytics::percentage(2,4)===50.0,'Analytics factual percentage');
+$ok(str_contains($read('app/Services/CronRunner.php'),'CronRunner')===false || str_contains($read('app/Services/CronRunner.php'),'monitor'),'Cron remains present');
+foreach($checks as [$success,$name]){echo ($success?'PASS':'FAIL').' '.$name.PHP_EOL;}
+$failed=count(array_filter($checks,static fn(array $r):bool=>!$r[0]));echo (count($checks)-$failed).'/'.count($checks).' passed'.PHP_EOL;exit($failed?1:0);

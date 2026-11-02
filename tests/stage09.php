@@ -1,0 +1,56 @@
+<?php
+declare(strict_types=1);
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
+require dirname(__DIR__) . '/bootstrap.php';
+$root = dirname(__DIR__);
+$tests=[];
+$check=static function(bool $condition,string $label) use (&$tests):void {$tests[]=[$condition,$label];};
+$read=static fn(string $file):string=>(string)file_get_contents($root.'/'.$file);
+$check(trim($read('VERSION'))==='v0.2.2','Release version correct');
+$check(str_contains($read('install/index.php'),"'installed_version', 'v0.2.2'"),'Installer metadata current');
+$check(str_contains($read('install/index.php'),'information_schema.tables'),'Installer checks empty database before creating tables');
+$check(strpos($read('install/index.php'),'information_schema.tables') < strpos($read('install/index.php'),'foreach (explode'), 'Nonempty database guarded before DDL');
+$check(str_contains($read('install/index.php'),"'super_admin'"),'Fresh install Super Admin');
+$check(str_contains($read('install/index.php'),'strlen($password) < 8'),'Installer minimum password remains eight');
+$check(str_contains($read('app/Services/AdminUsers.php'),'strlen($password)<8'),'User management minimum password remains eight');
+$check(str_contains($read('app/Services/Auth.php'),'admin_session_version'),'Session version is checked');
+$check(str_contains($read("app/Services/Auth.php"), "\$user['status'] !== 'active'"), "Disabled account invalidation");
+$check(str_contains($read('admin/_dispatch.php'),'Authorization::requireAccess'),'Server-side RBAC');
+$check(strpos($read('admin/_dispatch.php'),'Authorization::requireAccess') < strpos($read('admin/_dispatch.php'),'AdminUsers::find'), 'Authorization before target user lookup');
+$check(str_contains($read('admin/_dispatch.php'),'Only a Super Admin can configure private-network monitoring.'),'Private network config authorization');
+$check(str_contains($read('admin/_dispatch.php'),'Only a Super Admin can operate private-network monitors.'),'Private network test/toggle authorization');
+$check(str_contains($read('app/Views/admin/monitor-form.php'),"Authorization::isSuperAdmin("),'Private network UI restricted');
+$check(str_contains($read('app/Services/CronRunner.php'),'flock($lock, LOCK_EX | LOCK_NB)'),'Cron nonblocking flock');
+$check(str_contains($read('app/Services/CronRunner.php'),'NotificationManager::deliverDue(3, $started + self::TARGET_SECONDS)'),'Cron limits outbox batch and time');
+$check(str_contains($read('app/Services/NotificationManager.php'),'$deadline!==null'),'Outbox stops adding requests after time budget');
+$check(str_contains($read('app/Models/CheckRepository.php'),'IncidentManager::apply'),'Check persistence incident transitions');
+$check(str_contains($read('app/Models/CheckRepository.php'),'NotificationManager::enqueue'),'Transactional notification outbox');
+$check(str_contains($read('app/Services/HttpMonitor.php'),'CURLOPT_SSL_VERIFYHOST => 2'),'HTTP TLS hostname verification');
+$check(str_contains($read('app/Services/TelegramNotifier.php'),'CURLOPT_SSL_VERIFYPEER => true'),'Telegram TLS verification');
+$check(str_contains($read('app/Services/PublicStatus.php'),'is_public'),'Public monitor filtering');
+$check(str_contains($read('app/Services/MonitorAnalytics.php'),'scheduled_check_samples'),'No fabricated uptime');
+$check(str_contains($read('app/Services/RetentionManager.php'),'LIMIT 1000'),'Bounded raw retention');
+$check(str_contains($read('app/Services/Authorization.php'),"'users'"),'User management route protected');
+$check(str_contains($read('app/Services/AdminUsers.php'),'The last active Super Admin cannot'),'Final Super Admin protected');
+$check(str_contains($read('app/Helpers/functions.php'),'function monitor_error_page'),'Safe 403/404/500 view');
+$check(str_contains($read('bootstrap.php'),'monitor_error_page(500,'),'Safe global 500 rendering');
+$check(str_contains($read('app/Views/admin/system.php'),'Database table unavailable; check the current migration'),'No outdated stage migration hints');
+$check(str_contains($read('admin/_dispatch.php'),'NotificationRepository::normalizeFilter'),'Notifications filtering preserved');
+$check(str_contains($read('database/schema.sql'),'CREATE TABLE IF NOT EXISTS maintenance_logs'),'Fresh schema includes maintenance');
+$check(str_contains($read('database/schema.sql'),'monitor_hourly_stats'),'Fresh schema includes aggregates');
+$check(str_contains($read('database/schema.sql'),'notification_logs'),'Fresh schema includes notification outbox');
+$check(str_contains($read('database/patches/v0.1.0.sql'),'ON DUPLICATE KEY UPDATE'),'Version patch repeat-safe');
+$check(!preg_match('/\b(DROP TABLE|TRUNCATE TABLE|DELETE FROM)\b/i',$read('database/patches/v0.1.0.sql')),'Upgrade does not delete data');
+$check(!str_contains($read('.htaccess'),'Options +Indexes'),'Directory listing disabled');
+$check(str_contains($read('.htaccess'),'RewriteRule ^(?:app|config|database|storage|cron|tests)'),'Private dirs blocked in Apache');
+$check(str_contains($read('public/index.php'),"absolute_url('status/')") || str_contains($read('status/index.php'),"absolute_url('status/')"),'Public canonical folder route');
+$check(str_contains($read('app/Services/TelegramDestinations.php'),'function parse'),'Multi Chat ID supported');
+$check(str_contains($read('app/Services/Upload.php'),'move_uploaded_file'),'Upload checks preserve PHP upload boundary');
+$check(str_contains($read('app/Services/Upload.php'),'getimagesize'),'Uploaded image dimensions guarded');
+$check(str_contains($read('README.md'),'maintainer-tested') && str_contains($read('README.md'),'every new installation'), 'Maintainer testing and host-specific verification documented');
+$testFiles=glob($root.'/tests/*.php');
+foreach($testFiles as $f){$check(str_contains(file_get_contents($f),"PHP_SAPI !== 'cli'"),'CLI-only '.basename($f));}
+foreach($tests as [$ok,$name]){echo ($ok?'PASS':'FAIL').' '.$name.PHP_EOL;}
+$failed=count(array_filter($tests,static fn(array $r):bool=>!$r[0]));
+echo (count($tests)-$failed).'/'.count($tests).' passed'.PHP_EOL;
+exit($failed?1:0);

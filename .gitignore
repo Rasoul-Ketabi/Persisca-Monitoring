@@ -1,0 +1,43 @@
+# Local install credentials, lock files and transient data
+/config/database.php
+/config/database.php.*
+/storage/installed.lock
+/storage/install-running.lock
+/storage/cron*.lock
+/storage/*.lock
+/storage/logs/*
+!/storage/logs/.htaccess
+/storage/cache/*
+!/storage/cache/.htaccess
+/storage/sessions/
+/public/assets/uploads/*
+!/public/assets/uploads/.htaccess
+!/public/assets/uploads/index.html
+
+# Sensitive local exports and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.sql.gz
+*.sql.zip
+*.sql.bak
+*.dump
+*.log
+*.sqlite
+*.sqlite3
+php_errors.log
+error_log
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+/vendor/
+/node_modules/

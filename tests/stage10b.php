@@ -1,0 +1,72 @@
+<?php
+declare(strict_types=1);
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
+require dirname(__DIR__).'/bootstrap.php';
+$root=dirname(__DIR__);
+$tests=[];
+$test=static function(bool $pass,string $name) use (&$tests):void { $tests[]=[$pass,$name];echo ($pass?'PASS ':'FAIL ').$name.PHP_EOL; };
+$read=static fn(string $path):string=>(string)file_get_contents($root.'/'.$path);
+$users=$read('app/Services/PortalUsers.php');
+$public=$read('app/Services/PublicStatus.php');
+$portal=$read('account/_dispatch.php');
+$front=$read('public/index.php');
+$view=$read('app/Views/public/status.php');
+$admin=$read('app/Views/admin/portal-users.php');
+$sql=$read('database/patches/v0.2.1.sql');
+$schema=$read('database/schema.sql');
+$test(trim($read('VERSION'))==='v0.2.2','Version 0.2.1');
+$test(str_contains($read('install/index.php'),"'installed_version', 'v0.2.2'"),'Fresh install metadata');
+foreach(['portal_users','portal_otp_codes','monitors','monitor_checks','incidents','notification_logs'] as $table) {
+    $test(str_contains($schema,$table),'Fresh schema retains '.$table);
+}
+foreach(['public_slug','public_status_enabled','status_page_title','uniq_portal_public_slug'] as $col) {
+    $test(str_contains($schema,$col),'Fresh schema contains '.$col);
+    $test(str_contains($sql,$col),'Upgrade includes '.$col);
+}
+$test(str_contains($sql,"CONCAT('user-',id)"),'Migration supplies stable unique slugs');
+$test(str_contains($sql,'DEFAULT 0'),'Existing user personal pages disabled');
+$test(!preg_match('/\b(DROP TABLE|TRUNCATE TABLE|DELETE FROM)\b/i',$sql),'No destructive migration');
+$test(str_contains($read('.htaccess'),'status/([a-z0-9]'),'Apache personal slug rewrite');
+$test(is_file($root.'/account/status-page/index.php'),'Portal status settings physical route');
+$test(str_contains($portal,"'status-page'"),'Portal route allowlist');
+$test(str_contains($portal,'Security::requireCsrf()'),'Portal POST CSRF');
+$test(str_contains($portal,'PortalMonitors::find($uid,$id)'),'Ownership enforced before visibility mutation');
+$test(str_contains($read('app/Services/PortalMonitors.php'),'WHERE id=? AND portal_user_id=?'),'Visibility update owner-scoped');
+$test(str_contains($public,"' IS NULL' : ' = ?'"),'Scope distinguishes platform and portal');
+$test(str_contains($public,'$q->execute($args)'),'Scoped queries bind owner ID');
+$test(substr_count($public,'$q->execute($args)')===3,'All three public monitor/incident reads scoped');
+$test(str_contains($front,'PortalUsers::publicBySlug($slug)'),'Published user lookup');
+$test(str_contains($users,"public_status_enabled=1 AND status='active'"),'Unpublished/disabled page not resolved');
+$test(str_contains($front,'monitor_error_page(404)'),'Unknown personal slugs 404');
+$test(str_contains($front,"absolute_url('status/'." . '$slug' . ".'/')"),'Personal canonical');
+$test(str_contains($view,'e($canonical)'),'Canonical OG URL escaped');
+$test(str_contains($view,'e($pageHeading'),'User page heading escaped');
+$test(!str_contains($view,"['email']"),'No portal email in public template');
+$test(!str_contains($view,"['url']"),'No monitor endpoint URL in public template');
+$test(str_contains($admin,'portal-admin-fields'),'Admin form uses corrected layout');
+$test(str_contains($read('public/assets/css/app.css'),'.portal-admin-fields :is(input,select)'),'Full-width admin form input styles');
+$test(str_contains($read('public/assets/css/app.css'),'.portal-users-empty'),'Admin no-data layout');
+$test(str_contains($read('app/Views/portal/page.php'),'portal-status-monitor-row'),'Portal monitor visibility controls');
+$test(str_contains($read('app/Views/portal/top.php'),"portal_url('status-page')"),'Portal navigation status page link');
+$test(str_contains($read('app/Views/portal/page.php'),'portal-status-summary'),'Portal dashboard summary');
+$test(str_contains($users,'status_page_title'),'Title editable by admin');
+$test(str_contains($users,'uniq_portal_public_slug')===false,'DB unique key, not client-only check');
+$test(\Monitor\Services\PortalUsers::isValidSlug('acme-company'),'Friendly slug valid');
+$test(\Monitor\Services\PortalUsers::isValidSlug('client-42'),'Numeric suffix valid');
+$test(!\Monitor\Services\PortalUsers::isValidSlug('admin'),'Reserved slug invalid');
+$test(!\Monitor\Services\PortalUsers::isValidSlug('telegram'),'Reserved service invalid');
+$test(!\Monitor\Services\PortalUsers::isValidSlug('Hello'),'Uppercase slug invalid');
+$test(!\Monitor\Services\PortalUsers::isValidSlug('has spaces'),'Whitespace slug invalid');
+$test(!\Monitor\Services\PortalUsers::isValidSlug('../evil'),'Traversal slug invalid');
+$test(!\Monitor\Services\PortalUsers::isValidSlug(str_repeat('a',121)),'Overlength slug invalid');
+$test(\Monitor\Services\PortalUsers::slugFromName('Acme Company')==='acme-company','Slug generated from name');
+$test(\Monitor\Services\PortalUsers::slugFromName('admin')==='user','Reserved name fallback');
+$test(str_contains($read('app/Services/PublicStatus.php'),'self::history'),'Daily uptime history reused');
+$test(str_contains($read('app/Services/PublicStatus.php'),'MonitorAnalytics::summary'),'Existing factual analytics reused');
+$test(str_contains($read('app/Services/PublicStatus.php'),'m.is_public=1'),'Private incidents excluded');
+$test(str_contains($read('app/Services/PublicStatus.php'),'IS NULL'),'Global platform scope preserved');
+$test(str_contains($read('app/Services/PublicStatus.php'),"' = ?'"),'Owner scope parameterized');
+$test(str_contains($read('app/Views/public/status.php'),'e($ogImage)'),'White-label OG image unchanged');
+$test(str_contains($front,'$ownerId = null;'),'Platform status remains default');
+$test(!str_contains($portal,'?page='),'No query-based page routes');
+$failed=count(array_filter($tests,fn($r)=>!$r[0]));echo (count($tests)-$failed).'/'.count($tests).' passed'.PHP_EOL;exit($failed?1:0);
