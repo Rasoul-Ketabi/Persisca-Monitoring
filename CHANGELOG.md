@@ -1,28 +1,33 @@
 # Changelog
 
-The entries below summarize the current cumulative implementation. This public repository starts with the **v0.2.2 maintainer-tested release**; earlier stage names refer to the development history rather than a supported set of GitHub release tags.
+Public GitHub tags start at v0.2.2. Version v0.2.3 includes two subsequent fixes in one installable build.
+
+## v0.2.3 - SMTP infrastructure and Portal monitor hotfix
+
+- Native SMTP transport in the central Mailer, alongside existing PHP `mail()`.
+- STARTTLS, SSL/TLS and unauthenticated relay, with AUTH LOGIN/PLAIN, TLS verification and safe diagnostics.
+- Super Admin Mail Settings page at `/admin/settings/mail/`, Test Email, transport selection and System Health status.
+- Portal OTP uses the configured mail transport; failed delivery invalidates an undelivered code.
+- Corrected the `Security::post()` class resolution in Portal Add/Edit Monitor forms to prevent the 500 error.
+- Existing monitor, incident, Telegram, status page and portal features retained.
+- Upgrade SQL adds mail settings defaults without resetting existing values.
 
 ## v0.2.2 - Telegram account linking
 
-- One-time portal Telegram deep links (15-minute expiry) and secret-verified webhook.
-- Connected account status, alert toggle, disconnect/reconnect.
-- Owner-scoped DOWN and RECOVERED alerts with per-recipient delivery logs.
-- Existing multi-chat global/admin Telegram notifications preserved.
+- One-time user Telegram deep links and secret-verified webhook.
+- Owner-scoped DOWN and RECOVERED alerts, with per-recipient delivery logs.
+- Existing multi-chat admin notifications preserved.
 
-## v0.2.1 - Personal status pages
+## v0.2.1 - Personal public status pages
 
-- Owner-scoped `/status/{slug}/` pages with status and incident history.
-- Portal status-page controls and per-monitor visibility.
-- Admin Portal Users form layout changes and earlier navigation hotfix retained.
+- Owner-scoped `/status/{slug}/`, history, public/private controls.
+- Portal Users form styling and dashboard navigation fixes.
 
 ## v0.2.0 - Portal users
 
-- Email OTP login and independent portal sessions.
-- Monitor ownership, quotas, and customer monitor/incident/analytics pages.
-- Admin Portal User management.
+- OTP sign-in, monitor ownership and quotas.
+- Portal monitor/incident/analytics pages and administrator account management.
 
-## v0.1.0 - Core release candidate
+## v0.1.0 - Core monitoring
 
-- Super Admin/Admin access control, maintenance and system diagnostics.
-- Scheduled monitoring, incidents, recovery, Telegram notifications, analytics, retention and global public status page.
-- Installation wizard, branding and shared-hosting cron support.
+- Scheduled HTTP checks, incident state/recovery, Telegram notifications, analytics, retention, public status, branding, Super Admin and maintenance.

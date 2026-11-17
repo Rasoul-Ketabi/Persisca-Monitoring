@@ -40,6 +40,20 @@ $healthy = in_array($health, ['Healthy', 'Running'], true);
 <div class="health-list">
 <?php foreach ([['Notifications', $telegramEnabled ? 'Enabled' : 'Disabled'],['Bot token', Settings::get('telegram_bot_token') !== '' ? 'Configured' : 'Missing'],['Telegram destinations', count($telegramDestinations) . ' configured'],['Delivery failures (24h)', $recentDeliveryFailures < 0 ? 'Unavailable' : (string) $recentDeliveryFailures]] as [$name,$value]): ?><div class="health-item"><span><?= e($name) ?></span><strong><?= e((string) $value) ?></strong></div><?php endforeach; ?></div>
 <a class="monitor-back-link" href="<?= e(admin_url('notifications')) ?>">Notification delivery →</a>
+<div class="divider"></div><span class="eyebrow">MAIL DELIVERY</span>
+<div class="health-list">
+<?php foreach ([
+    ['Transport',Settings::get('mail_transport','php_mail')==='smtp'?'SMTP':'PHP mail()'],
+    ['SMTP Host',Settings::get('smtp_host')!==''?'Configured':'Missing'],
+    ['SMTP Port',Settings::get('smtp_port','587')],
+    ['Encryption',match(Settings::get('smtp_encryption','tls')){'tls'=>'STARTTLS','ssl'=>'SSL/TLS','none'=>'None',default=>'Invalid'}],
+    ['SMTP Username',Settings::get('smtp_username')!==''?'Configured':'Missing'],
+    ['SMTP Password',Settings::get('smtp_password')!==''?'Configured':'Missing'],
+    ['From Email',Settings::get('mail_from_email')!==''?Settings::get('mail_from_email'):'Missing'],
+    ['Last Test',ucfirst(Settings::get('mail_last_test_status','never'))],
+    ['Last Test At',display_date(Settings::get('mail_last_test_at')?:null)],
+] as [$name,$value]): ?><div class="health-item"><span><?= e($name) ?></span><strong><?= e((string)$value) ?></strong></div><?php endforeach; ?></div>
+<a class="monitor-back-link" href="<?= e(admin_url('settings/mail')) ?>">Mail settings →</a>
 <div class="divider"></div><span class="eyebrow">ANALYTICS & RETENTION</span><div class="health-list">
 <?php foreach ([['Check retention', Settings::get('check_retention_days','90').' days'],['Delivery log retention',Settings::get('notification_log_retention_days','90').' days'],['Last daily cleanup',display_date($meta['last_retention_cleanup_at'])],['Hourly stats updated',display_date($meta['hourly_last_aggregated_at'])],['Aggregation cursor',($meta['hourly_aggregated_check_id']??'Not started')]] as [$name,$value]): ?><div class="health-item"><span><?= e($name) ?></span><strong><?= e((string)$value) ?></strong></div><?php endforeach; ?></div>
 <div class="divider"></div><span class="eyebrow">CRON SETUP</span><p>Set a scheduled task in Plesk or cPanel to run the CLI file <code>cron/monitor.php</code> every minute, or as often as your hosting allows. Never use the public URL as a cron command.</p><p class="field-help">Current settings: <?= (int) Settings::get('cron_batch_size', '25') ?> checks max per run, <?= (int) Settings::get('check_retention_days', '90') ?> days of raw check history. Change in General Settings.</p></aside></div>

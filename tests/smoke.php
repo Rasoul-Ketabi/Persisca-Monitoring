@@ -12,7 +12,7 @@ $rejects = static function (callable $call): bool {
     try { $call(); return false; } catch (InvalidArgumentException $e) { return true; }
 };
 $root = monitor_root();
-$assert(trim((string) file_get_contents($root . '/VERSION')) === 'v0.2.2', 'Version matches v0.0.8');
+$assert(trim((string) file_get_contents($root . '/VERSION')) === 'v0.2.3', 'Version matches v0.0.8');
 $assert(!monitor_installed() && !monitor_install_blocked(), 'Packaged source has no installed configuration');
 $assert(is_file($root . '/public/assets/images/status-og-default.jpg'), 'Default Open Graph image remains');
 $assert(is_file($root . '/database/patches/v0.0.2.sql'), 'SQL migration is bundled');
@@ -27,7 +27,7 @@ $assert(str_contains($schema, 'idx_checks_monitor_date (monitor_id, checked_at)'
 $assert(str_contains($schema, 'ON DELETE CASCADE'), 'Check history cascades on monitor deletion');
 $assert(str_contains($sqlPatch, 'ALTER TABLE monitors') && !str_contains($sqlPatch, 'DROP TABLE'), 'Upgrade migration is non-destructive');
 $assert(str_contains($sqlPatch, "('installed_version', 'v0.0.4'"), 'Upgrade metadata updated');
-$assert(str_contains((string) file_get_contents($root . '/install/index.php'), "['installed_version', 'v0.2.2']"), 'Fresh installer version updated');
+$assert(str_contains((string) file_get_contents($root . '/install/index.php'), "['installed_version', 'v0.2.3']"), 'Fresh installer version updated');
 $assert(is_file($root . '/admin/monitors/view/index.php'), 'Folder-style monitor history route exists');
 $assert(is_file($root . '/app/Views/admin/monitor-detail.php'), 'Monitor history view exists');
 $assert(is_file($root . '/app/Models/CheckRepository.php'), 'Scheduled check persistence model exists');

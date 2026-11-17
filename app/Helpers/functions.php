@@ -30,6 +30,7 @@ function admin_url(string $page = 'dashboard'): string {
         'monitors/edit' => 'admin/monitors/edit/', 'monitors/view' => 'admin/monitors/view/', 'monitors/analytics' => 'admin/monitors/analytics/', 'incidents' => 'admin/incidents/', 'incidents/view' => 'admin/incidents/view/',
         'status-page' => 'admin/status-page/', 'notifications' => 'admin/notifications/',
         'settings/general' => 'admin/settings/general/', 'settings/branding' => 'admin/settings/branding/',
+        'settings/mail' => 'admin/settings/mail/',
         'system' => 'admin/system/',
         'users'=>'admin/users/', 'users/add'=>'admin/users/add/', 'users/edit'=>'admin/users/edit/',
         'users/password'=>'admin/users/password/', 'account'=>'admin/account/', 'maintenance'=>'admin/maintenance/',

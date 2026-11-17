@@ -8,7 +8,7 @@ final class Authorization {
         if (self::isSuperAdmin($user)) { return true; }
         if (($user['role'] ?? '') !== 'admin') { return false; }
         // Operational work remains available to Admin. Sensitive configuration does not.
-        if (in_array($route, ['users','users/add','users/edit','users/password','maintenance','system','settings/general','settings/branding'], true)) { return false; }
+        if (in_array($route, ['users','users/add','users/edit','users/password','maintenance','system','settings/general','settings/branding','settings/mail'], true)) { return false; }
         if ($route === 'notifications' && strtoupper($method) !== 'GET') { return false; }
         return in_array($route, ['dashboard','monitors','monitors/add','monitors/edit','monitors/view','monitors/analytics','incidents','incidents/view','status-page','notifications','account'], true);
     }

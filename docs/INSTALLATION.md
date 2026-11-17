@@ -1,6 +1,6 @@
 # Installation Guide
 
-This guide applies to **Monitor v0.2.2**. For an existing installation, use [UPGRADING.md](UPGRADING.md) instead. The maintainer has installed and tested the application. New deployments should still verify the host-specific prerequisites and delivery integrations.
+This guide applies to **Monitor v0.2.3**. For an existing installation, use [UPGRADING.md](UPGRADING.md) instead. The maintainer has installed and tested the application. New deployments should still verify the host-specific prerequisites and delivery integrations.
 
 ## 1. Confirm hosting support
 
@@ -12,7 +12,7 @@ This guide applies to **Monitor v0.2.2**. For an existing installation, use [UPG
 | Web server | Apache/LiteSpeed with rewriting and `.htaccess`, or equivalent nginx rules |
 | Storage | PHP account can write `config/`, `storage/`, `storage/cache/`, `storage/logs/`, `public/assets/uploads/` |
 | Scheduler | Cron or hosting scheduled task that executes PHP CLI |
-| Email | `mail()` configured for OTP users |
+| Email | Configured SMTP relay (recommended) or working PHP `mail()` for OTP users |
 | Telegram linking | Accessible HTTPS site and outbound HTTPS to Telegram |
 
 No SSH or Node/npm is needed for installation if your hosting panel can extract ZIPs and configure Cron.
@@ -43,7 +43,7 @@ httpdocs/
   storage/
 ```
 
-Incorrect: `httpdocs/monitor-github-ready-v0.2.2/bootstrap.php` when the domain is pointed at `httpdocs/`.
+Incorrect: `httpdocs/monitor-install-v0.2.3/bootstrap.php` when the domain is pointed at `httpdocs/`.
 
 On shared hosting use typical file permissions `0644` for files and `0755` for directories, with PHP owning or otherwise having write access to the required paths. **Do not set 0777**. Keep the root and protected-directory `.htaccess` files.
 
@@ -88,7 +88,7 @@ The correct binary and filesystem path depend on the host. Avoid logging Cron ou
 ## 6. Complete optional setup
 
 - **Telegram admin alerts:** `/admin/notifications/` (save bot token, chat destinations and test delivery).
-- **Portal OTP:** `/admin/portal-users/` (set a valid sender address before issuing user logins).
+- **Portal OTP / SMTP:** `/admin/settings/mail/` (configure sender and SMTP; send a test email before switching transport). Portal user accounts and quotas are managed at `/admin/portal-users/`.
 - **Telegram webhook linking:** Super Admin configures webhook on the Notifications page; portal users connect at `/account/telegram/`.
 - **Public status page:** `/status/`; personal pages use `/status/{slug}/` and require enablement.
 
@@ -111,3 +111,9 @@ Use [DEPLOYMENT-CHECKLIST.md](DEPLOYMENT-CHECKLIST.md). Check a monitor's succes
 | Logo/OG image missing | Upload directory write permissions and Base URL |
 
 **No hosted demo and no provider-specific compatibility guarantee are included.**
+
+## SMTP email delivery for OTP
+
+After first installation, the mail transport defaults to PHP `mail()` and can be changed by a Super Admin at `/admin/settings/mail/`. The form supports SMTP hostname/port, STARTTLS or SSL/TLS, authentication, From Name/Email, optional Reply-To, and connection timeout. Use **Send Test Email** to verify submission to a real recipient, then select SMTP as the active transport and test portal login. SMTP password values are never rendered after save, but are stored in the database without application-level at-rest encryption. Protect backups. SPF/DKIM/DMARC influence deliverability.
+
+If you already have an installation, do **not** follow these fresh-install steps. Use [the v0.2.3 upgrade instructions](UPGRADING.md).

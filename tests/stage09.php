@@ -6,8 +6,8 @@ $root = dirname(__DIR__);
 $tests=[];
 $check=static function(bool $condition,string $label) use (&$tests):void {$tests[]=[$condition,$label];};
 $read=static fn(string $file):string=>(string)file_get_contents($root.'/'.$file);
-$check(trim($read('VERSION'))==='v0.2.2','Release version correct');
-$check(str_contains($read('install/index.php'),"'installed_version', 'v0.2.2'"),'Installer metadata current');
+$check(trim($read('VERSION'))==='v0.2.3','Release version correct');
+$check(str_contains($read('install/index.php'),"'installed_version', 'v0.2.3'"),'Installer metadata current');
 $check(str_contains($read('install/index.php'),'information_schema.tables'),'Installer checks empty database before creating tables');
 $check(strpos($read('install/index.php'),'information_schema.tables') < strpos($read('install/index.php'),'foreach (explode'), 'Nonempty database guarded before DDL');
 $check(str_contains($read('install/index.php'),"'super_admin'"),'Fresh install Super Admin');
@@ -47,7 +47,7 @@ $check(str_contains($read('public/index.php'),"absolute_url('status/')") || str_
 $check(str_contains($read('app/Services/TelegramDestinations.php'),'function parse'),'Multi Chat ID supported');
 $check(str_contains($read('app/Services/Upload.php'),'move_uploaded_file'),'Upload checks preserve PHP upload boundary');
 $check(str_contains($read('app/Services/Upload.php'),'getimagesize'),'Uploaded image dimensions guarded');
-$check(str_contains($read('README.md'),'maintainer-tested') && str_contains($read('README.md'),'every new installation'), 'Maintainer testing and host-specific verification documented');
+$check(str_contains($read('README.md'),'code-verified') && str_contains($read('README.md'),'independent security audit'),'Published release status and limitations documented');
 $testFiles=glob($root.'/tests/*.php');
 foreach($testFiles as $f){$check(str_contains(file_get_contents($f),"PHP_SAPI !== 'cli'"),'CLI-only '.basename($f));}
 foreach($tests as [$ok,$name]){echo ($ok?'PASS':'FAIL').' '.$name.PHP_EOL;}

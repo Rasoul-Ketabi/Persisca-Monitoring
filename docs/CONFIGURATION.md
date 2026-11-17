@@ -32,7 +32,7 @@ Bot Token and webhook secret are stored in DB settings. They are not encrypted a
 
 ## Portal OTP email
 
-Set a sender email address and sender name under `/admin/portal-users/` as Super Admin. The mailer uses the PHP `mail()` function with these settings. This project does **not** provide SMTP provider integration in v0.2.2. Ensure the hosting provider permits sending and that SPF/DKIM/DMARC align with your sender domain where appropriate.
+Configure From Email/Name and the mail transport at `/admin/settings/mail/` as Super Admin. SMTP and PHP `mail()` are supported. SPF/DKIM/DMARC should align with the sender domain.
 
 Admin-created portal users log in at `/account/login/` with a **6-digit code valid for 10 minutes**. OTP requests are throttled; codes are hashed and consumed once. Unknown email addresses receive a generic response. Portal users do not have passwords.
 
@@ -45,3 +45,11 @@ Each Portal User may optionally publish `/status/{slug}/`. The slug is controlle
 ## Retention and health
 
 Check `/admin/system/` and `/admin/maintenance/` for Cron heartbeat, queue state, storage status and cleanup diagnostics. Defaults include **90-day** raw check and notification-log retention. Hourly aggregate statistics and incident history are preserved according to their separate behavior. Use only the bounded maintenance actions provided in the admin UI.
+
+## Mail transport, SMTP and test delivery (v0.2.3)
+
+At `/admin/settings/mail/`, Super Admin can select PHP `mail()` or native SMTP. SMTP supports host/port, STARTTLS, SSL/TLS, unencrypted non-authenticated relay, AUTH PLAIN/LOGIN, sender name/address, optional Reply-To, and timeout. Typical secure choices are 587/STARTTLS or 465/SSL-TLS. TLS certificate verification remains enabled; SMTP authentication over an unencrypted connection is rejected.
+
+Use **Send Test Email** with a chosen recipient to verify configuration. Saving SMTP credentials does not have to switch the active transport: you can test SMTP while PHP `mail()` remains active. After successful testing, enable SMTP to send Portal OTP through the central Mailer service. If OTP delivery fails, no successful login session is created and the undelivered OTP is invalidated.
+
+SMTP password is stored in the database settings table **without at-rest encryption**. Leaving the password input blank preserves the existing secret, and the form includes an explicit clear-password option. Do not expose your database, PHP error logs or backups. A server response accepting SMTP delivery does not guarantee Inbox delivery; configure sender domain SPF, DKIM and DMARC. The System Health section displays a safe test state.

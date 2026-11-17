@@ -14,8 +14,8 @@ $view=$read('app/Views/public/status.php');
 $admin=$read('app/Views/admin/portal-users.php');
 $sql=$read('database/patches/v0.2.1.sql');
 $schema=$read('database/schema.sql');
-$test(trim($read('VERSION'))==='v0.2.2','Version 0.2.1');
-$test(str_contains($read('install/index.php'),"'installed_version', 'v0.2.2'"),'Fresh install metadata');
+$test(trim($read('VERSION'))==='v0.2.3','Version 0.2.1');
+$test(str_contains($read('install/index.php'),"'installed_version', 'v0.2.3'"),'Fresh install metadata');
 foreach(['portal_users','portal_otp_codes','monitors','monitor_checks','incidents','notification_logs'] as $table) {
     $test(str_contains($schema,$table),'Fresh schema retains '.$table);
 }

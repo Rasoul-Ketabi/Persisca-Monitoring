@@ -76,8 +76,8 @@ $ok(str_contains($publicRepo,"m.is_public = 1"),'Public incident query excludes 
 $ok(!str_contains(file_get_contents($root . '/app/Services/IncidentManager.php'),'Telegram'),'Incident service does not depend on Telegram');
 $ok(!str_contains(file_get_contents($root . '/app/Views/public/status.php'),'99.99%'),'No fabricated uptime statistics');
 $ok(str_contains(file_get_contents($root . '/admin/_dispatch.php'),'Security::requireCsrf()'),'Admin POST CSRF protection preserved');
-$ok(str_contains(file_get_contents($root . '/install/index.php'),'v0.2.2'),'Installer version updated');
-$ok(trim(file_get_contents($root . '/VERSION'))==='v0.2.2','Version file updated');
+$ok(str_contains(file_get_contents($root . '/install/index.php'),'v0.2.3'),'Installer version updated');
+$ok(trim(file_get_contents($root . '/VERSION'))==='v0.2.3','Version file updated');
 $passed=0;
 foreach ($checks as [$pass,$name]) { echo ($pass ? 'PASS ' : 'FAIL ') . $name . PHP_EOL; if($pass) $passed++; }
 echo $passed . '/' . count($checks) . ' passed' . PHP_EOL;

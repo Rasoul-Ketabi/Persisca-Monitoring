@@ -79,7 +79,7 @@ $ok(str_contains(file_get_contents($root.'/install/index.php'),'v0.2.2'),'Fresh 
 $ok(str_contains(file_get_contents($root.'/app/Models/Settings.php'),"'status_show_incidents' => '1'"),'Installer defaults include status page settings');
 $ok(str_contains($schema,'CREATE TABLE IF NOT EXISTS monitor_hourly_stats'),'Stage 06 aggregates kept');
 $ok(str_contains($schema,'uniq_notification_recipient_event'),'Multi Chat ID schema kept');
-$ok(trim(file_get_contents($root.'/VERSION'))==='v0.2.2','Version updated');
+$ok(trim(file_get_contents($root.'/VERSION'))==='v0.2.3','Version updated');
 $failed=0;
 foreach($results as [$pass,$name]){if(!$pass)$failed++;echo ($pass?'PASS':'FAIL').' '.$name.PHP_EOL;}
 echo(count($results)-$failed).'/'.count($results).' passed'.PHP_EOL;

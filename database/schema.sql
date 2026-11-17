@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS users (
   INDEX idx_users_role_status (role, status)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- SMTP defaults are seeded by app/Models/Settings.php during fresh installation.
+-- Mail configuration uses this existing key/value table; no new table is needed.
 CREATE TABLE IF NOT EXISTS settings (
   setting_key VARCHAR(100) NOT NULL PRIMARY KEY,
   setting_value TEXT NULL,

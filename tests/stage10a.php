@@ -8,8 +8,8 @@ $ok=static function(bool $passed,string $name) use (&$checks):void {$checks[]=[$
 $schema=$read('database/schema.sql');$sql=$read('database/patches/v0.2.0.sql');
 $portal=$read('account/_dispatch.php');$auth=$read('app/Services/PortalAuth.php');$owner=$read('app/Services/PortalMonitors.php');
 $users=$read('app/Services/PortalUsers.php');$mailer=$read('app/Services/Mailer.php');
-$ok(trim($read('VERSION'))==='v0.2.2','Version current');
-$ok(str_contains($read('install/index.php'),"'installed_version', 'v0.2.2'"),'Installer metadata current');
+$ok(trim($read('VERSION'))==='v0.2.3','Version current');
+$ok(str_contains($read('install/index.php'),"'installed_version', 'v0.2.3'"),'Installer metadata current');
 $ok(str_contains($read('install/index.php'),"'super_admin'"),'Super Admin install preserved');
 $ok(str_contains($sql,'CREATE TABLE IF NOT EXISTS portal_users'),'Portal users migration');
 $ok(str_contains($schema,'CREATE TABLE IF NOT EXISTS portal_users'),'Portal users fresh schema');

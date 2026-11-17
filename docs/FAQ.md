@@ -38,8 +38,16 @@ Check that the PHP code and database schema are at matching versions, and review
 
 ### Can I install from the GitHub **Code > Download ZIP** option?
 
-Yes, but that ZIP normally adds a repository-name wrapper directory. Extract its **contents** into the website document root. The `monitor-install-v0.2.2.zip` release asset is more convenient because the app files are already at the archive root.
+Yes, but that ZIP normally adds a repository-name wrapper directory. Extract its **contents** into the website document root. The `monitor-install-v0.2.3.zip` release asset is more convenient because the app files are already at the archive root.
 
 ### Can I get support or report a vulnerability?
 
 Open a GitHub Issue for normal bugs and feature requests. Follow [SECURITY.md](../SECURITY.md) for private vulnerability reports. Do not publish server secrets or user data in tickets.
+
+### Does Monitor support SMTP?
+
+Yes, since v0.2.3. Open `/admin/settings/mail/` as Super Admin, save SMTP Host/Port/TLS/auth credentials, send a test email and then select SMTP as the active transport for portal OTP. SMTP acceptance does not guarantee Inbox placement; SPF, DKIM and DMARC may affect delivery.
+
+### I see a 500 error on Add Monitor in the customer portal.
+
+The original v0.2.3 SMTP patch did not contain the later Portal Add/Edit Monitor form fix. Download the hotfix asset if SMTP is already installed; otherwise the cumulative `v0.2.2 -> v0.2.3` update includes both fixes.

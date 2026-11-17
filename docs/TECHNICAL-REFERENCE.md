@@ -1,21 +1,19 @@
-# Monitor | Full Project Reference v0.2.2
+# Monitor | Full Project Reference v0.2.3
 
-**Release:** v0.2.2, Stage 10C: Telegram Account Linking and Per-User Telegram Alerts.  
-**Authoritative source:** accepted v0.2.1 FULL ZIP and FULL MD, including the v0.2.0 sidebar-500 hotfix and Stage 10B form correction.  
-**Runtime:** PHP 8.1+, PDO MySQL/MariaDB, InnoDB, PHP cURL, TLS, sessions and fileinfo; Apache/LiteSpeed or appropriately configured nginx. No Node/Redis/WebSockets/daemon/root required.  
-**Status:** Maintainer-tested v0.2.2. The owner reports deploying and testing the application. Developer-side verification did not include direct MySQL, mail or Telegram integration, and independent security auditing is not claimed.
+**Version:** `v0.2.3`, focused Stage 10A.1 SMTP upgrade (cumulative on accepted v0.2.2).  
+**Baseline:** actual accepted `monitor-full-v0.2.2.zip` and `MONITOR-FULL-PROJECT-v0.2.2.md`, retaining Stage 10A / 10B / 10C, portal-user Telegram linking and all earlier features. The original SMTP prompt specified a historical v0.2.0-r1 branch; the version number has been advanced to prevent any rollback from v0.2.2.  
+**Runtime:** native PHP 8.1+, PDO MySQL/MariaDB, cURL/TLS, PHP stream/socket/OpenSSL support, fileinfo and sessions; standard shared hosting, Apache/LiteSpeed `.htaccess` or equivalent nginx. No Composer, Docker, Node, Redis or daemon.  
+**Release status:** Release Candidate, code-level verified; live SMTP submission and inbox acceptance on the target hosting are still required.
 
-## 1. Architecture and preservation
+## 1. Product architecture
 
-The application is a self-hosted, fully white-label HTTP monitor. It retains password-based Super Admin/Admin accounts; per-user OTP Portal accounts and quotas; scheduled HTTP monitoring and manual diagnostics; incidents and recovery; global multi-chat Telegram alerts; hourly analytics and retention; a global `/status/` and owner-scoped personal `/status/{slug}/` pages; and admin maintenance tools. All interface and generated text remains English. Admin password minimum remains 8 characters.
+Monitor includes Super Admin/Admin accounts and session invalidation, OTP Portal Users with monitor quotas, owner-specific monitoring and incident access, status pages, operational HTTP checks and incidents, global multi-chat Telegram alerts, private Telegram account linking for Portal Users, native analytics, retention, maintenance and white-label branding. The interface and generated email messages are in English. The Admin password minimum remains eight characters.
 
-Stage 10C adds a **private, connected Telegram identity per Portal User**, an authenticated Bot API webhook, one-time deep-link tokens, independent per-recipient notification outbox entries and portal controls. IncidentManager does not talk to Telegram. During a scheduled check, the existing check/incident transaction calls NotificationManager::enqueue, which records eligible admin-global and connected user-recipient events. Cron then delivers a bounded set of due messages after committing operational state. No manual Test Now notifications.
-
-Secrets (Bot Token and webhook secret) reside in the **database `settings` table** as `telegram_bot_token` and `telegram_webhook_secret`. Database administrators and database backups can read those secrets, so DB access and backup files must be protected. Neither secret is rendered in saved HTML or exported in distribution defaults, logs, FULL MD or patch SQL.
+Stage 10A.1 upgrades the **existing** `app/Services/Mailer.php`, adds `app/Services/SmtpClient.php` for native RFC-style SMTP requests and creates Super Admin-only `/admin/settings/mail/`. Portal OTP still calls `Mailer::otp()`; delivery is selected by `mail_transport` and a delivery failure invalidates the undelivered OTP. The source of truth for all settings is the pre-existing `settings` key/value table. No previously accepted SQL table or monitoring behavior is removed.
 
 ## 2. Complete distribution file tree
 
-The tree contains source files in the shipped FULL ZIP. Runtime locks, configuration, sessions, uploaded branding, and logs are excluded.
+Paths are relative to the archive root. Deployment-specific `config/database.php`, `storage/installed.lock`, customer uploads, secrets, sessions and runtime logs are intentionally excluded.
 
 ```text
 .htaccess
@@ -30,6 +28,8 @@ MONITOR-FULL-PROJECT-v0.0.8.md
 MONITOR-FULL-PROJECT-v0.1.0.md
 MONITOR-FULL-PROJECT-v0.2.0.md
 MONITOR-FULL-PROJECT-v0.2.1.md
+MONITOR-FULL-PROJECT-v0.2.2.md
+MONITOR-FULL-PROJECT-v0.2.3.md
 MONITOR-v0.1.0-RELEASE-NOTES.md
 README.md
 VERSION
@@ -71,6 +71,7 @@ admin/portal-users/index.php
 admin/portal-users/view/index.php
 admin/settings/branding/index.php
 admin/settings/general/index.php
+admin/settings/mail/index.php
 admin/status-page/index.php
 admin/system/index.php
 admin/users/add/index.php
@@ -104,6 +105,7 @@ app/Services/PortalMonitors.php
 app/Services/PortalUsers.php
 app/Services/PublicStatus.php
 app/Services/RetentionManager.php
+app/Services/SmtpClient.php
 app/Services/TelegramDestinations.php
 app/Services/TelegramLinkManager.php
 app/Services/TelegramNotifier.php
@@ -115,6 +117,7 @@ app/Views/admin/dashboard.php
 app/Views/admin/general.php
 app/Views/admin/incident-detail.php
 app/Views/admin/incidents.php
+app/Views/admin/mail.php
 app/Views/admin/maintenance.php
 app/Views/admin/monitor-analytics.php
 app/Views/admin/monitor-detail.php
@@ -155,6 +158,7 @@ database/patches/v0.1.0.sql
 database/patches/v0.2.0.sql
 database/patches/v0.2.1.sql
 database/patches/v0.2.2.sql
+database/patches/v0.2.3.sql
 database/schema.sql
 index.php
 install/index.php
@@ -169,6 +173,7 @@ status/index.php
 storage/.htaccess
 storage/cache/.htaccess
 storage/logs/.htaccess
+storage/logs/monitor-cron.log
 telegram/webhook/index.php
 tests/.htaccess
 tests/multichat.php
@@ -183,31 +188,30 @@ tests/stage07.php
 tests/stage08.php
 tests/stage09.php
 tests/stage10a.php
+tests/stage10a1.php
 tests/stage10b.php
 tests/stage10c.php
-MONITOR-FULL-PROJECT-v0.2.2.md
 ```
 
-## 3. Routes and access control
+## 3. Routes and access
 
-| Route | Purpose | Audience |
+| Route | Purpose | Access |
 |---|---|---|
-| `/admin/` | Operational dashboard | Admin and Super Admin |
-| `/admin/users/` | Manage administrator accounts | Super Admin |
-| `/admin/portal-users/` | Create portal accounts and quotas | Super Admin |
-| `/admin/portal-users/view/?id=N` | Public page settings and Telegram connection state | Super Admin |
-| `/admin/notifications/` | Global destinations, delivery logs, bot webhook setup | GET: Admin; change: Super Admin |
-| `/admin/maintenance/`, `/admin/system/`, `/admin/settings/branding/` | Sensitive operations | Super Admin |
-| `/account/login/`, `/account/verify/` | Email OTP | Unauthenticated Portal User |
-| `/account/` | Personal monitoring dashboard | Logged-in Portal User |
-| `/account/monitors/`, `/account/incidents/`, `/account/analytics/?id=N` | Owner-scoped monitoring | Logged-in Portal User |
-| `/account/status-page/` | Personal page publication and monitor privacy | Logged-in Portal User |
-| `/account/telegram/` | Telegram connect, alerts, disconnect | Logged-in Portal User |
-| `/telegram/webhook/` | Telegram message updates, secret-header authenticated | Telegram Bot API only |
-| `/status/` | Public platform monitor status | Anonymous |
-| `/status/{slug}/` | Published personal status page | Anonymous, only active published owner |
+| `/install/` | Fresh installation on empty DB | Before installation only |
+| `/admin/` | Dashboard | Admin, Super Admin |
+| `/admin/monitors/`, `/admin/incidents/` | Monitoring and incidents | Admin, Super Admin |
+| `/admin/notifications/` | Global Telegram logs and settings | Read: Admin; configure: Super Admin |
+| `/admin/settings/mail/` | SMTP/PHP mail configuration, test delivery | **Super Admin only**, GET + CSRF-protected POST |
+| `/admin/settings/general/`, `/admin/settings/branding/` | Core configuration | Super Admin |
+| `/admin/system/`, `/admin/maintenance/` | Health and controlled maintenance | Super Admin |
+| `/admin/users/`, `/admin/portal-users/` | Account management | Super Admin |
+| `/account/login/`, `/account/verify/` | Portal email OTP | Public login flow |
+| `/account/`, `/account/monitors/`, `/account/incidents/`, `/account/analytics/` | Portal-only owner-scoped data | Authenticated Portal User |
+| `/account/status-page/`, `/account/telegram/` | Personal status and Telegram settings | Authenticated Portal User |
+| `/telegram/webhook/` | Bot API callback, validated secret header | Telegram only |
+| `/status/`, `/status/{slug}/` | Platform and personal public status pages | Anonymous, published data only |
 
-Apache folder entry points are physical PHP `index.php` files except the existing internal rewrite for personal slugs. Webhook is an actual `/telegram/webhook/index.php`. It does not create an admin/portal PHP session (`MONITOR_NO_SESSION`). `bootstrap.php` and source/config/runtime paths are protected by webserver rules; nginx must mirror Apache protections.
+All browser URLs use physical folder-style entry points, except personal slug rewrite already implemented in Stage 10B. No `?page=` routing. Standard Admin cannot reach the Mail page or run mail settings POST handlers even via a manual URL request.
 
 ## 4. Telegram link flow, webhook setup, and security
 
@@ -486,45 +490,150 @@ CREATE TABLE IF NOT EXISTS telegram_link_tokens (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 ```
 
-### Stage 10C upgrade migration
 
-The separate file `monitor-sql-patch-v0.2.2.sql` is the **one-time** migration from accepted v0.2.1. It adds five nullable/defaulted Telegram identity/preference columns and unique user identity to `portal_users`, replaces the Stage 05 notification key with recipient-aware uniqueness, creates `telegram_link_tokens`, seeds empty/non-secret Telegram settings keys, and updates installed version metadata. It does not reset any account, password, monitor, check, incident, personal slug/page setting, existing Telegram Bot Token/Chat IDs, analytics or prior notification row. There is no automatic Telegram account linking. Historic notifications retain admin-global identity with default recipient ID `0`.
+### Stage 10A.1 upgrade patch
+
+The following file is supplied separately as `monitor-sql-patch-v0.2.3.sql` and stored in the FULL ZIP at `database/patches/v0.2.3.sql`. It performs only additive key/value defaults and metadata changes, not a schema reset. The MySQL schema is unchanged because `settings(setting_key, setting_value, updated_at)` already accommodates SMTP options.
+
+```sql
+-- Monitor SMTP Stage 10A.1, cumulatively applied to actual v0.2.2 baseline.
+-- Upgrade v0.2.2 -> v0.2.3. Back up the database before applying once.
+-- No schema DDL is required: settings is already a key/value table.
+-- Existing OTP, Telegram, portal, branding and monitoring data are retained.
+INSERT INTO settings(setting_key,setting_value,updated_at) VALUES
+('mail_transport','php_mail',UTC_TIMESTAMP()),
+('smtp_host','',UTC_TIMESTAMP()),
+('smtp_port','587',UTC_TIMESTAMP()),
+('smtp_encryption','tls',UTC_TIMESTAMP()),
+('smtp_auth_enabled','1',UTC_TIMESTAMP()),
+('smtp_username','',UTC_TIMESTAMP()),
+('smtp_password','',UTC_TIMESTAMP()),
+('mail_reply_to','',UTC_TIMESTAMP()),
+('smtp_timeout','15',UTC_TIMESTAMP()),
+('mail_last_test_at','',UTC_TIMESTAMP()),
+('mail_last_test_status','never',UTC_TIMESTAMP()),
+('mail_last_test_error','',UTC_TIMESTAMP())
+ON DUPLICATE KEY UPDATE setting_key=setting_key;
+
+INSERT INTO system_meta(meta_key,meta_value,updated_at)
+VALUES ('installed_version','v0.2.3',UTC_TIMESTAMP())
+ON DUPLICATE KEY UPDATE meta_value=VALUES(meta_value),updated_at=VALUES(updated_at);
+```
 
 ## 7. Other existing services retained
 
-- **Authentication:** Admin and Super Admin have password authentication, a shared minimum of 8 characters, active-user checks, role authorization and session invalidation. Portal Users are OTP-only, six-digit random code, 10-minute expiry, five verification attempts, 60-second resend cooldown and per-email/IP throttling; sender configured in `mail_from_email` / `mail_from_name`, transported through host PHP `mail()`.
+- **Authentication:** Admin and Super Admin have password authentication, a shared minimum of 8 characters, active-user checks, role authorization and session invalidation. Portal Users are OTP-only, six-digit random code, 10-minute expiry, five verification attempts, 60-second resend cooldown and per-email/IP throttling; sender configured in `mail_from_email` / `mail_from_name`; `Mailer` uses either the configured native SMTP transport or legacy PHP `mail()`.
 - **Monitors:** Admin platform monitors have null owner, Portal User monitors use a real owner foreign key and transactional per-user quota. Existing user dashboards, CRUD, Test Now, incidents and analytics keep strict ID/owner scoping.
 - **Scheduled monitoring:** CLI cron checks due monitors (including portal owned) with HTTP validation, retries and SSL checking. The existing incident engine confirms outages with failure thresholds and closes on recovery. Manual tests never alter incidents or trigger alert messages.
 - **Analytics:** Real scheduled-check samples drive 24h/7d/30d check success percentage, min/max/avg response time, hourly rollups and retention. Missing observations are not asserted as uptime; incident overlaps are separate. Bounded cleanup preserves incident history.
 - **Public status:** Global `/status/` lists only platform-owned, public monitors. `/status/{slug}/` requires active, published Portal User and only public monitors/incidents belonging to that owner; factual 30-day history with no-data periods, configured branding, Canonical and Open Graph. No personal Telegram fields are included.
 - **Maintenance:** Super Admin-only diagnostics, cron health, scheduling repair, retention cleanup, hourly aggregate processing, role/security tools and audit summaries. No shell, Node, persistent daemon or arbitrary SQL endpoint.
 
-## 8. Installation and upgrade
 
-**Fresh install:** upload `monitor-full-v0.2.2.zip` into an empty web root, create an empty MySQL database, open `/install/`, create initial Super Admin, configure application branding/timezone/URL, then schedule Cron every minute. Setup mail sender in `/admin/portal-users/` for OTP and Telegram bot/webhook in `/admin/notifications/`. Create Portal Users later; public pages remain disabled by default. Ensure configured HTTPS URL is actually reachable from Telegram.
+## 8. SMTP implementation
 
-**Upgrade from v0.2.1:**
+### Mailer and transport selection
 
-1. Back up all files **and database**, stop cron and avoid admin/portal writes during upgrade.
-2. Execute `monitor-sql-patch-v0.2.2.sql` **once** in phpMyAdmin before deploying code. The migration adds columns that the new code references. Do not rerun installer or old migration scripts.
-3. Extract `monitor-patch-v0.2.2.zip` directly over the installed app and overwrite changed source, preserving server `config/database.php`, `storage/installed.lock`, uploads, sessions and logs.
-4. Resume cron. Log in as Super Admin, open `/admin/notifications/`, save/verify bot token, click **Configure Webhook**. The configured `base_url` must use HTTPS.
-5. Log in as a Portal User, open `/account/telegram/`, press **Connect Telegram**, open the deep link and send `/start` in the bot's private chat. Refresh Portal to verify the connected state. Test user-only DOWN and Recovery in staging, admin global alert independence, disconnect/reconnect and disable preferences.
-6. Check `/status/`, `/status/{slug}/`, OTP, analytics, incidents and System Health after the upgrade.
+`Mailer::send(recipient, subject, body, optionalTransportOverride)` is the single entry point for transactional mail; it reads from `Settings::all()` and returns a structured result containing `success`, `stage`, `smtp_code` (when known) and `safe_message`. `Mailer::otp()` builds the 10-minute English OTP message and calls `Mailer::send()`. The caller consumes an undelivered code and does not display transport errors publicly. The default transport is `php_mail` and is unchanged on an existing installation unless Super Admin explicitly changes it. A test can override **just the transport** to SMTP without changing the live OTP selection.
 
-Cron examples (actual binary/folder vary):
+### Native SMTP protocol
+
+`SmtpClient::send()` uses `stream_socket_client()` and checks 220 greeting, multiline 250 EHLO response, optional 220 STARTTLS followed by verified `stream_socket_enable_crypto()` and a second EHLO, optional advertised AUTH PLAIN or LOGIN (235 success), MAIL FROM 250, RCPT TO 250/251, DATA 354, body 250 and best-effort QUIT. Socket read/write operations use the configured 3–60-second timeout. Messages use CRLF, SMTP dot-stuffing, Date, From, To, UTF-8 Subject (RFC 2047 encoded-words), unique Message-ID, MIME-Version, Content-Type text/plain UTF-8 and base64 Content-Transfer-Encoding. Long subjects are split at UTF-8 code point boundaries into valid encoded-words. The body is not recorded in the database.
+
+Supported encryption: `tls` STARTTLS (typically 587), `ssl` implicit SSL/TLS (typically 465), `none` for **unauthenticated** local or private relays. TLS certificate and hostname verification are always enabled. The application **refuses to transmit SMTP credentials over a cleartext connection**. SMTP AUTH PLAIN and LOGIN are selected from advertised server capabilities after TLS negotiation. OAuth2 is not included.
+
+### Settings and credential storage
+
+Existing `settings` table keys:
+
+| Key | Default | Meaning |
+|---|---|---|
+| `mail_transport` | `php_mail` | `smtp` or `php_mail` |
+| `smtp_host` | empty | Provider host/IP |
+| `smtp_port` | `587` | Port 1–65535 |
+| `smtp_encryption` | `tls` | `tls`, `ssl`, `none` |
+| `smtp_auth_enabled` | `1` | SMTP auth flag |
+| `smtp_username` | empty | SMTP login name |
+| `smtp_password` | empty | Protected secret, not returned in UI |
+| `mail_from_email` | existing/empty | Validated sender, required for SMTP |
+| `mail_from_name` | existing/empty | Display name, defaults to app name if empty |
+| `mail_reply_to` | empty | Optional Reply-To address |
+| `smtp_timeout` | `15` | Connection/read/write timeout seconds |
+| `mail_last_test_at` | empty | UTC safe test timestamp |
+| `mail_last_test_status` | `never` | `success` or `failed` |
+| `mail_last_test_error` | empty | Safe diagnostic only |
+
+**Secret strategy:** SMTP password is stored in `settings.setting_value` under the key `smtp_password`, consistent with the pre-existing Telegram Bot Token storage design. The password is **not encrypted at rest**; a database administrator or someone with database backups can read it. Protect database access, backup files, and administrator accounts. Passwords never appear in the HTML source, JavaScript, logs, FULL MD, default SQL/ZIP or error text. Leaving the password input blank retains the saved credential; clearing it requires a separate checkbox and explicit Yes confirmation. The UI indicates only **Configured** or **Missing**.
+
+### Validation and safe errors
+
+Super Admin POST requires the existing CSRF field and validates host/port, encryption, authentication, username, sender/Reply-To, timeout and transport. It rejects CR/LF header injection, unsupported modes and auth with no encryption. The SMTP client maps provider failures to safe categories: connect, greeting, EHLO, TLS, authentication, MAIL FROM, RCPT TO, DATA, send. No raw SMTP transcript, auth string, exception trace or token-containing URL is ever stored or displayed. For a failed OTP send, the original generic portal response remains and the unreceived code is consumed.
+
+### Send Test Email
+
+Super Admin opens `/admin/settings/mail/`, saves a provider configuration, then uses **Send Test Email** to a validated recipient (default current Super Admin email). The POST action is CSRF-protected and does not create OTP, login sessions, monitors or incidents. The UI allows testing the **saved SMTP settings** even while OTP uses `php_mail`. The result and UTC test timestamp are stored in safe settings keys; diagnostic text is fixed and sanitized rather than copied from SMTP server responses. A success indicates acceptance by the SMTP relay or PHP mail transport, **not guaranteed inbox placement**.
+
+### Deliverability
+
+Check SPF, DKIM, DMARC, PTR/rDNS, receiving-provider filters and sending reputation when Gmail, Outlook or other providers do not deliver. Native SMTP cannot itself guarantee inbox delivery. Using authenticated TLS SMTP with a reputable provider typically gives better control than an unconfigured PHP mail relay. This stage intentionally does not implement DNS changes, inbound mail, newsletters, mail queues, OAuth2 or incident email alerts.
+
+### System Health
+
+`/admin/system/` safely lists active mail transport, SMTP host status, port, encryption, username status, password status, From Email, and last test result/time, plus a link to Mail / SMTP settings. No password values or transcripts are rendered.
+
+## 9. Installation and upgrade
+
+**Fresh install v0.2.3:** create an empty database and deploy `monitor-full-v0.2.3.zip` in the document root without a wrapper folder. Open `/install/` and create the first Super Admin, branding and timezone. `database/schema.sql` creates the existing full schema; the installer seeds current `Settings::defaults()` including SMTP settings and `system_meta.installed_version=v0.2.3`. SMTP is optional during installation. Configure `/admin/settings/mail/` and send a test before changing the active transport; set cron (every minute or host minimum) and verify OTP.
+
+**Upgrade from the latest accepted v0.2.2:**
+
+1. Back up database and files and pause Cron during deployment.
+2. Run `monitor-sql-patch-v0.2.3.sql` **once**, preserving all older settings. Because no column DDL is needed, this patch is compatible with live v0.2.2 code.
+3. Extract `monitor-patch-v0.2.3.zip` over the installed root, replacing source files only. Do not overwrite `config/database.php`, `storage/installed.lock`, runtime folders or customer branding.
+4. Restart Cron and sign in as Super Admin. Open `/admin/settings/mail/` and save the SMTP provider details. The existing `php_mail` transport stays active until explicitly changed.
+5. Test saved SMTP against an external mailbox while PHP mail is active, switch to SMTP when ready, and test a real Portal OTP email. Verify admin, Telegram alerts and both `/status/` and personal status routes.
+
+Cron examples (actual paths vary):
 
 ```bash
 /usr/local/bin/php /home/USERNAME/public_html/monitor/cron/monitor.php
 /opt/plesk/php/8.2/bin/php /var/www/vhosts/DOMAIN/httpdocs/cron/monitor.php
 ```
 
-## 9. Verification, limitations and next stage
+**No deletions** from v0.2.2. Existing users/passwords, portal quota/ownership, OTP records, incidents, monitor checks, notification history, hourly statistics, Telegram settings and personal status pages remain intact. Do not reinstall and do not apply an old v0.2.0-r1 patch after v0.2.2.
 
-**Development verification:** PHP lint across application, new Stage 10C deterministic source/pure-function assertions, and compatibility regression tests for Stages 01–10B. ZIP contents are compared with the actual v0.2.1 baseline and archive modes validated. No historical files are intentionally removed.
+## 10. Verification and known limitations
 
-**Verification record:** The project owner reports that the application was installed and tested on their server. The build environment used for this source did not independently execute MySQL/Plesk integration or use real Telegram and mail credentials. Each operator should validate database migrations, outgoing mail, Telegram `getMe`/`setWebhook`, incoming webhook authentication, account linking, dual-recipient alerts, cron timing, permission enforcement and mobile layout on their own hosting environment. There is no independent security certification.
+**Code-level verification:** All PHP files are syntax-checked; legacy version checks are updated to v0.2.3. Deterministic tests exercise SMTP settings validation, secret masking, role/CSRF, OTP integration, TLS flags, schema/version and prior features. Loopback SMTP test server verified the RFC dialogue, multiline replies, server accept/reject behavior, dot-stuffing and generated MIME headers without connecting to the internet. The package is checked for no secrets, ZIP wrapper and correct 644/755 file modes.
 
-**Known limits:** one connected private Telegram account per Portal User; no Telegram polls/commands for managing monitors; admin multiple Chat IDs still supported; webhook setup state is last successful registration, not live status monitoring. Telegram's lack of sendMessage idempotency prevents exactly-once delivery in crash-after-accept conditions. PHP `mail()` depends on host transport. Database access can reveal bot/webhook secrets, so protect DB and backups. Cleanup of expired link tokens is not yet automated; reconnect/disconnect invalidates outstanding tokens and expiry rejects stale links.
+**Live verification still required:** actual TLS handshake with the intended SMTP provider, successful authenticated SMTP submission and real external inbox receipt, OTP login through the selected SMTP server, Plesk/cPanel route/permissions, SQL patch execution on production MySQL, and any provider-specific SMTP policy limitations. This environment lacks the real SMTP credentials and remote network access; it cannot claim delivery to Gmail/Outlook or production installation was tested here.
 
-**Next recommendation:** After confirming v0.2.2 on the actual host, continue with a focused **Stage 10D: Portal Telegram UX & Production Reliability QA**, covering real webhook/retry integration tests, secret rotation/health checks, expired token cleanup, and optional richer per-user alert preferences, while preserving the accepted FULL ZIP/MD as the sole source of truth. Do not implement billing, teams, email incident alerts or unsupported Telegram commands as part of 10C.
+**Known limitations:** native SMTP supports standard username/password AUTH PLAIN/LOGIN, not OAuth2; complex provider SMTP auth policies may require app passwords or relay configuration; no mail queues or bounce processing; SMTP data acceptance is not inbox acceptance. Credentials in the settings database are protected by permissions and UI masking but not application-layer encryption at rest. Existing Telegram external delivery also remains at-least-once in crash-after-accept scenarios. All previous monitoring, public status, Portal User and admin-role limitations remain as in v0.2.2.
+
+**Suggested next development:** production SMTP interoperability/OTP deliverability QA as a focused patch after deployment, with future provider-specific enhancements only if needed. Keep v0.2.3 as the newest cumulative FULL ZIP + FULL MD baseline for further 10D work. No billing, newsletters, bulk email, OAuth2 or email incident alerts in this SMTP stage.
+
+## Hotfix: Portal User Add/Edit Monitor HTTP 500
+
+**Hotfix ID:** `v0.2.3-portal-hotfix` (same application/database version `v0.2.3`; cumulative on the accepted v0.2.3 FULL ZIP).
+
+**Reported symptom:** Portal User opens `/account/monitors/add/` or `/account/monitors/edit/?id=...` and sees a `500 Service Temporarily Unavailable` message embedded after the portal heading. The HTML form never appears.
+
+**Root cause:** `app/Views/portal/page.php` invoked `Security::post()` without a fully qualified class name. The `use Monitor\Core\Security;` import in the dispatcher does not apply to a separately included view. PHP therefore throws `Error: Class "Security" not found` during view rendering, including for HTTP GET requests. The application's production error handler replaces the remaining HTML with a safe 500 error page.
+
+**Fix:** The form branch now calls `\Monitor\Core\Security::post()` explicitly, consistently with the existing `\Monitor\Core\Security::csrfField()` calls. Both Add and Edit forms now use the same qualified class. Request validation, CSRF protection, monitor quota checks, ownership checks and form field values remain unchanged.
+
+**Affected deployment path:** `app/Views/portal/page.php`. The bundled `MONITOR-FULL-PROJECT-v0.2.3.md` has been updated with this note. No other PHP, schema or infrastructure files are changed. No application version bump, migrations, or SQL patch are required. No deletions.
+
+**Install/upgrade:** Back up the current file, then extract `monitor-hotfix-v0.2.3-portal-add-monitor.zip` into the existing document root, keeping the path hierarchy and overwriting matching files. Do not re-run `/install/` or any SQL migration. Refresh `/account/monitors/add/` and `/account/monitors/edit/?id=...` as a Portal User; test both an empty GET and validation error POST. On a host with PHP OPcache, refresh/invalidate the OPcache if stale output continues. Cron is unaffected.
+
+**Code verification:** The original error was reproduced with a PHP CLI render harness and then fixed. Four render cases passed: Add GET, Edit GET, Add POST with validation error and Edit POST with validation error. All four retain the CSRF field. The entire existing regression suite passed **792/792** assertions after the fix. All distributable PHP source files passed `php -l`, ZIP permissions and file integrity were validated. The patch was applied to the exact accepted v0.2.3 FULL ZIP baseline and compared byte-for-byte to the new FULL ZIP.
+
+**Live verification still required:** Reload the portal routes on the installed Plesk host, submit a real monitor under a user's quota, verify persisted ownership and scheduled checking, and confirm Edit Monitor works. The development environment does not have a live copy of the production database, so this is a source-level, not a live-host, fix verification.
+
+**Baseline rule:** For all subsequent Monitor development, use `monitor-full-v0.2.3-portal-hotfix.zip` and the updated FULL MD rather than the pre-hotfix `monitor-full-v0.2.3.zip`.
+
+
+
+## GitHub public release information
+
+The repository contains a curated source tree; archived milestone documents from prior development stages are not required to install v0.2.3. The live application is defined by the v0.2.3 source files and `database/schema.sql`. Keep prior migration scripts to upgrade installations at older versions.

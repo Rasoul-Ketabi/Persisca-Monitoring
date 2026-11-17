@@ -24,11 +24,12 @@ use Monitor\Services\Authorization;
 use Monitor\Services\AdminUsers;
 use Monitor\Services\Maintenance;
 use Monitor\Services\HourlyAggregator;
+use Monitor\Services\Mailer;
 header('Cache-Control: no-store, private');
 if (!monitor_installed()) { to(url('install/index.php')); }
 if (!isset($page) || !in_array($page, [
     'login', 'logout', 'dashboard', 'monitors', 'monitors/add', 'monitors/edit', 'monitors/view', 'monitors/analytics',
-    'incidents', 'incidents/view', 'status-page', 'notifications', 'settings/general', 'settings/branding', 'system',
+    'incidents', 'incidents/view', 'status-page', 'notifications', 'settings/general', 'settings/branding', 'settings/mail', 'system',
     'users', 'users/add','users/edit','users/password','account','maintenance',
     'portal-users','portal-users/add','portal-users/edit','portal-users/view',
 ], true)) { monitor_error_page(404, true); }
@@ -116,6 +117,36 @@ if (in_array($page,['users/add','users/edit','users/password','account','mainten
 if (Security::post() && !str_starts_with($page, 'monitors') && !in_array($page,['users/add','users/edit','users/password','account','maintenance'],true)) {
     Security::requireCsrf();
     try {
+        if ($page === 'settings/mail') {
+            $action=(string)($_POST['action']??'');
+            if ($action==='save') {
+                $new=Mailer::validateSettings($_POST,Settings::all());
+                Settings::putMany($new);
+                flash('success','Mail delivery settings saved. Send a test message to verify your SMTP configuration.');
+                to(admin_url('settings/mail'));
+            }
+            if ($action==='test') {
+                $recipient=trim((string)($_POST['test_recipient']??''));
+                if (!Mailer::validAddress($recipient)) {throw new RuntimeException('Enter a valid test recipient email address.');}
+                $testMode=(string)($_POST['test_transport']??'smtp');
+                if (!in_array($testMode,['smtp','active'],true)) {throw new RuntimeException('Choose a valid test transport.');}
+                $app=Settings::get('app_name','Monitor');
+                $result=Mailer::send($recipient,'SMTP Test — '.$app,
+                    "SMTP is configured correctly for {$app}.\n\nThis test message was sent from the mail settings page.",
+                    $testMode==='smtp'?'smtp':null);
+                Settings::putMany([
+                    'mail_last_test_at'=>gmdate('Y-m-d H:i:s'),
+                    'mail_last_test_status'=>$result['success']?'success':'failed',
+                    'mail_last_test_error'=>$result['success']?'':$result['safe_message'],
+                ]);
+                if (!$result['success']) {
+                    throw new RuntimeException($result['safe_message'].($result['smtp_code']!==null?' (SMTP '.$result['smtp_code'].')':''));
+                }
+                flash('success','Test email sent successfully. The mail server accepted the message; inbox placement is not guaranteed.');
+                to(admin_url('settings/mail'));
+            }
+            http_response_code(405);exit('Unsupported mail settings action.');
+        }
         if ($page === 'notifications') {
             $action = (string) ($_POST['action'] ?? 'save');
             if ($action === 'save') {
@@ -422,6 +453,7 @@ $titleByPage = [
     'status-page' => ['Status Page', 'Manage your public service status.'],
     'notifications' => ['Notifications', 'Manage alerts and delivery channels.'],
     'settings/general' => ['General Settings', 'Manage your platform preferences.'],
+    'settings/mail' => ['Mail / SMTP', 'Configure transactional email and test delivery.'],
     'settings/branding' => ['Branding', 'Make the platform look like yours.'],
     'system' => ['System Health', 'Review your installation and environment.'],
     'users'=>['Admin Users','Manage administrator accounts and access.'],
@@ -444,6 +476,7 @@ $view = match ($page) {
     'incidents' => 'incidents',
     'incidents/view' => 'incident-detail',
     'settings/general' => 'general',
+    'settings/mail' => 'mail',
     'settings/branding' => 'branding',
     'system' => 'system',
     'notifications' => 'notifications',

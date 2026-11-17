@@ -34,7 +34,7 @@ Use a staging domain with test data before putting a real installation online. C
 
 ## Privacy, portal and charts
 
-- [ ] OTP mail arrives using the actual hosting mail transport.
+- [ ] OTP mail arrives using the actual configured SMTP or PHP mail transport.
 - [ ] Portal login validates code expiry, one-time use and throttling.
 - [ ] Account A cannot view or edit Account B's monitors, incidents or analytics.
 - [ ] Monitor quota prevents extra creation on the server.
@@ -54,3 +54,12 @@ Use a staging domain with test data before putting a real installation online. C
 - [ ] Maintenance actions require Super Admin permission and CSRF.
 
 **Run these checks for your own installation.** Maintainer testing does not replace validation on a different host.
+
+## v0.2.3 mail and portal form checks
+
+- [ ] `/admin/settings/mail/` is Super Admin-only and never displays the saved SMTP password.
+- [ ] Test email is accepted using the desired SMTP settings and arrives at an external mailbox.
+- [ ] The TLS mode is correct and invalid SMTP credentials produce safe errors.
+- [ ] Portal OTP email arrives after switching Mail Transport to SMTP.
+- [ ] `/account/monitors/add/` and `/account/monitors/edit/` render without 500 errors.
+- [ ] The existing SMTP mail transport remains PHP `mail()` until explicitly switched.

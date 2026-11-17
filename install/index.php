@@ -136,13 +136,13 @@ if (Security::post()) {
                 }
                 $stmt = $pdo->prepare('INSERT INTO settings (setting_key, setting_value, updated_at) VALUES (?, ?, UTC_TIMESTAMP())');
                 foreach ($defaults as $key => $value) { $stmt->execute([$key, $value]); }
-                $pdo->prepare('INSERT INTO system_meta (meta_key, meta_value, updated_at) VALUES (?, ?, UTC_TIMESTAMP())')->execute(['installed_version', 'v0.2.2']);
+                $pdo->prepare('INSERT INTO system_meta (meta_key, meta_value, updated_at) VALUES (?, ?, UTC_TIMESTAMP())')->execute(['installed_version', 'v0.2.3']);
                 $data = "<?php\nreturn " . var_export($_SESSION['install_db'], true) . ";\n";
                 if (file_put_contents($tmp, $data, LOCK_EX) === false || !@chmod($tmp, 0600) || !rename($tmp, $cfg)) {
                     throw new RuntimeException('Could not create the protected configuration file.');
                 }
                 $createdConfig = true;
-                if (file_put_contents($lock, "installed:v0.2.2\n", LOCK_EX) === false) { throw new RuntimeException('Could not lock the installer.'); }
+                if (file_put_contents($lock, "installed:v0.2.3\n", LOCK_EX) === false) { throw new RuntimeException('Could not lock the installer.'); }
                 $createdLock = true;
                 @chmod($lock, 0600);
                 $pdo->commit();

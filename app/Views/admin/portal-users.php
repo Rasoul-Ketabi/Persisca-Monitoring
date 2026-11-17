@@ -17,15 +17,8 @@ $publicBase=absolute_url('status/');
   <?php else: ?><div class="portal-users-empty"><strong>No portal users yet</strong><p>Add a Portal User to assign monitor slots and give them an email-only login.</p></div><?php endif; ?>
 </section>
 <section class="panel portal-admin-card">
-  <div class="portal-admin-heading"><h2>Email delivery settings</h2><p>Configure the sender address used for portal login codes. Your hosting provider must support outbound email.</p></div>
-  <form class="portal-admin-form" method="post" action="<?= e($base) ?>">
-    <?= \Monitor\Core\Security::csrfField() ?><input type="hidden" name="action" value="mail">
-    <div class="portal-admin-fields">
-      <label for="portal-mail-email">Sender email<input id="portal-mail-email" name="mail_from_email" type="email" maxlength="190" value="<?= e((string)($settings['mail_from_email']??'')) ?>" placeholder="status@example.com" autocomplete="off"></label>
-      <label for="portal-mail-name">Sender name<input id="portal-mail-name" name="mail_from_name" maxlength="100" value="<?= e((string)($settings['mail_from_name']??'')) ?>" placeholder="Service Status" autocomplete="off"></label>
-    </div>
-    <div class="portal-admin-actions"><button class="button primary" type="submit">Save sender settings</button></div>
-  </form>
+  <div class="portal-admin-heading"><h2>Email delivery</h2><p>Portal login codes use the configured mail transport. Set the sender and SMTP server from Mail / SMTP settings.</p></div>
+  <div class="portal-admin-actions"><a class="button secondary" href="<?= e(admin_url('settings/mail')) ?>">Configure Mail / SMTP</a></div>
 </section>
 <?php elseif ($page==='portal-users/view'): ?>
 <?php $personalUrl=$publicBase.rawurlencode((string)$portalTarget['public_slug']).'/'; ?>

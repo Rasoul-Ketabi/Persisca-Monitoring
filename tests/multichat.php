@@ -46,7 +46,7 @@ $test(str_contains($view, '<textarea name="telegram_chat_id"'), 'Multi-line sett
 $test(str_contains($view, 'e($log[\'destination_chat_id\']'), 'Delivery history escapes each destination');
 $test(str_contains(file_get_contents($root.'/app/Views/admin/incident-detail.php'),"['recipient_type']"), 'Incident details show each destination');
 $test(str_contains(file_get_contents($root.'/app/Views/admin/system.php'), 'count($telegramDestinations)'), 'Health shows destination count');
-$test(trim(file_get_contents($root.'/VERSION'))==='v0.2.2', 'Patch version');
-$test(str_contains(file_get_contents($root.'/install/index.php'),"'v0.2.2'"), 'Fresh installer version');
+$test(trim(file_get_contents($root.'/VERSION'))==='v0.2.3', 'Patch version');
+$test(str_contains(file_get_contents($root.'/install/index.php'),"'v0.2.3'"), 'Fresh installer version');
 $passed=0; foreach ($items as [$ok,$desc]) { echo ($ok?'PASS ':'FAIL ') . $desc . PHP_EOL; $passed+=(int) $ok; }
 echo $passed.'/'.count($items).' passed'.PHP_EOL; exit($passed === count($items) ? 0 : 1);

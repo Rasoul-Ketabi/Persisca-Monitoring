@@ -7,7 +7,7 @@ use Monitor\Services\RetentionManager;
 $tests=[];
 $check=static function(bool $condition,string $label) use (&$tests):void{$tests[]=[$condition,$label];};
 $root=monitor_root();
-$check(trim(file_get_contents($root.'/VERSION'))==='v0.2.2','Stage 06 functionality preserved in v0.0.8');
+$check(trim(file_get_contents($root.'/VERSION'))==='v0.2.3','Stage 06 functionality preserved in v0.0.8');
 $check(MonitorAnalytics::period('24h')==='24h','24h selection');
 $check(MonitorAnalytics::period('7d')==='7d','7d selection');
 $check(MonitorAnalytics::period('30d')==='30d','30d selection');

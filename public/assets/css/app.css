@@ -233,3 +233,11 @@
 .portal-telegram-link{margin-top:24px;padding:20px;border:1px solid #d6e1f5;border-radius:14px;background:#f5f8ff}
 .portal-telegram-link p{margin:8px 0 18px;font-size:13px;line-height:1.65}
 @media(max-width:650px){.portal-telegram-facts{grid-template-columns:1fr}.portal-telegram-form{align-items:stretch;flex-direction:column}.portal-telegram-form .portal-button{width:100%}}
+
+/* Transactional mail settings, using the admin settings design system. */
+.mail-settings-stack{min-width:0;display:grid;gap:18px}
+.mail-settings-stack>.panel{min-width:0}
+.settings-form .mail-checkbox{display:flex;flex-direction:row;align-items:center;gap:10px;line-height:1.5}
+.settings-form .mail-checkbox input{width:17px;min-height:17px;height:17px;margin:0;flex:0 0 17px}
+.mail-last-error{font-size:12px;color:#a63e45;background:#fff1f2;border-radius:8px;padding:12px;line-height:1.5}
+@media(max-width:720px){.mail-settings-stack{width:100%}}

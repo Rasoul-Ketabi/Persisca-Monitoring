@@ -20,7 +20,11 @@ final class Settings {
             'check_retention_days' => '90', 'notification_log_retention_days' => '90', 'cron_stale_after_minutes' => '10', 'cron_batch_size' => '25',
             'status_page_enabled' => '1', 'status_show_uptime' => '1', 'status_show_response_time' => '1', 'status_show_incidents' => '1', 'status_show_footer' => '1',
             'telegram_enabled' => '0', 'telegram_notify_down' => '1', 'telegram_notify_recovery' => '1',
-            'telegram_bot_token' => '', 'telegram_chat_id' => '', 'telegram_bot_username' => '', 'telegram_webhook_secret' => '', 'telegram_webhook_configured' => '0', 'mail_from_email' => '', 'mail_from_name' => '',
+            'telegram_bot_token' => '', 'telegram_chat_id' => '', 'telegram_bot_username' => '', 'telegram_webhook_secret' => '', 'telegram_webhook_configured' => '0',
+            'mail_transport'=>'php_mail','smtp_host'=>'','smtp_port'=>'587','smtp_encryption'=>'tls',
+            'smtp_auth_enabled'=>'1','smtp_username'=>'','smtp_password'=>'',
+            'mail_from_email'=>'','mail_from_name'=>'','mail_reply_to'=>'','smtp_timeout'=>'15',
+            'mail_last_test_at'=>'','mail_last_test_status'=>'never','mail_last_test_error'=>'',
         ];
     }
 
