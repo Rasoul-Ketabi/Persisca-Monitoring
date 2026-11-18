@@ -45,7 +45,7 @@ $test(str_contains($sql,'maintenance_logs'),'Maintenance audit schema');
 $test(str_contains($sql,'session_version'),'Session revision migration');
 $test(str_contains($r?file_get_contents($r.'/install/index.php'):'', "'super_admin', 'active'"),'Fresh install creates Super Admin');
 $test(str_contains(file_get_contents($r.'/install/index.php'),'minlength="8"'),'Installer accepts 8 characters');
-$test(trim(file_get_contents($r.'/VERSION'))==='v0.2.3','Version updated');
+$test(trim(file_get_contents($r.'/VERSION'))==='v0.2.4','Version updated');
 $test(str_contains($dispatch,'Maintenance::withCronLock'),'Maintenance shares cron concurrency lock');
 $test(str_contains(file_get_contents($r.'/app/Services/RetentionManager.php'),'runNow'),'Manual bounded cleanup available');
 $test(str_contains(file_get_contents($r.'/app/Views/admin/notifications.php'),'Authorization::isSuperAdmin'),'Notification config restricted');

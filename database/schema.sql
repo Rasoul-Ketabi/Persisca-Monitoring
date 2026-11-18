@@ -131,6 +131,8 @@ CREATE TABLE IF NOT EXISTS incidents (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
+-- v0.2.4 routing invariant: NULL monitor owner => admin_global only; non-NULL => that portal_user only.
+-- Retain historic notification records and recipient-aware event uniqueness.
 CREATE TABLE IF NOT EXISTS notification_logs (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   monitor_id BIGINT UNSIGNED NOT NULL,

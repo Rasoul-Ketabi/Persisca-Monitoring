@@ -8,8 +8,8 @@ $ok=static function(bool $pass,string $name)use(&$tests):void{$tests[]=[$pass,$n
 $schema=$read('database/schema.sql');$patch=$read('database/patches/v0.2.2.sql');$svc=$read('app/Services/TelegramLinkManager.php');
 $notify=$read('app/Services/NotificationManager.php');$tg=$read('app/Services/TelegramNotifier.php');$web=$read('telegram/webhook/index.php');
 $portal=$read('account/_dispatch.php');$view=$read('app/Views/portal/page.php');$admin=$read('admin/_dispatch.php');
-$ok(trim($read('VERSION'))==='v0.2.3','Target version');
-$ok(str_contains($read('install/index.php'),"'installed_version', 'v0.2.3'"),'Fresh install metadata updated');
+$ok(trim($read('VERSION'))==='v0.2.4','Target version');
+$ok(str_contains($read('install/index.php'),"'installed_version', 'v0.2.4'"),'Fresh install metadata updated');
 foreach(['portal_users','portal_otp_codes','telegram_link_tokens','notification_logs','monitor_checks','incidents','maintenance_logs'] as $table) {
     $ok(str_contains($schema,'CREATE TABLE IF NOT EXISTS '.$table),'Fresh schema retains '.$table);
 }
@@ -48,8 +48,8 @@ $ok(str_contains($portal,'Security::requireCsrf()'),'Portal mutations CSRF');
 $ok(str_contains($view,'e($telegramConnectUrl)'),'Telegram link HTML escaped');
 $ok(str_contains($view,"portal_url('telegram')"),'Portal Telegram actions use folder routes');
 $ok(is_file($root.'/account/telegram/index.php'),'Portal Telegram physical route');
-$ok(str_contains($notify,'$ownerId=(int)($monitor[\'portal_user_id\']??0)'),'User notification selection owner bound');
-$ok(str_contains($notify,"WHERE id=? AND status='active'"),'Active owner resolved from DB');
+$ok(str_contains($notify,'recipientForMonitor($monitor)'),'User notification selection owner bound');
+$ok(str_contains($notify,"FROM portal_users WHERE id=? LIMIT 1") && str_contains($notify,'$owner[\'status\']!==\'active\''),'Active owner resolved from DB');
 $ok(str_contains($notify,"'portal_user'"),'Personal recipient outbox rows created');
 $ok(str_contains($notify,"'admin_global'"),'Global recipient outbox rows preserved');
 $ok(str_contains($notify,'portal_user_id') && str_contains($notify,'portal_chat_id'),'Live ownership and connection checked before send');

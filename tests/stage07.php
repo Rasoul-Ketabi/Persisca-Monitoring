@@ -75,11 +75,11 @@ $ok(is_file($root.'/app/Views/admin/status-page.php'),'Status admin screen exist
 $ok(str_contains($sql,'ON DUPLICATE KEY UPDATE setting_key'),'Existing settings remain unchanged');
 $ok(!str_contains($sql,'DROP TABLE')&&!str_contains($sql,'TRUNCATE'),'SQL migration non-destructive');
 $ok(str_contains($sql,"'v0.0.7'"),'Migration version updated');
-$ok(str_contains(file_get_contents($root.'/install/index.php'),'v0.2.2'),'Fresh installer version');
+$ok(str_contains(file_get_contents($root.'/install/index.php'),'v0.2.4'),'Fresh installer version');
 $ok(str_contains(file_get_contents($root.'/app/Models/Settings.php'),"'status_show_incidents' => '1'"),'Installer defaults include status page settings');
 $ok(str_contains($schema,'CREATE TABLE IF NOT EXISTS monitor_hourly_stats'),'Stage 06 aggregates kept');
 $ok(str_contains($schema,'uniq_notification_recipient_event'),'Multi Chat ID schema kept');
-$ok(trim(file_get_contents($root.'/VERSION'))==='v0.2.3','Version updated');
+$ok(trim(file_get_contents($root.'/VERSION'))==='v0.2.4','Version updated');
 $failed=0;
 foreach($results as [$pass,$name]){if(!$pass)$failed++;echo ($pass?'PASS':'FAIL').' '.$name.PHP_EOL;}
 echo(count($results)-$failed).'/'.count($results).' passed'.PHP_EOL;

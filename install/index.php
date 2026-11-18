@@ -136,13 +136,13 @@ if (Security::post()) {
                 }
                 $stmt = $pdo->prepare('INSERT INTO settings (setting_key, setting_value, updated_at) VALUES (?, ?, UTC_TIMESTAMP())');
                 foreach ($defaults as $key => $value) { $stmt->execute([$key, $value]); }
-                $pdo->prepare('INSERT INTO system_meta (meta_key, meta_value, updated_at) VALUES (?, ?, UTC_TIMESTAMP())')->execute(['installed_version', 'v0.2.3']);
+                $pdo->prepare('INSERT INTO system_meta (meta_key, meta_value, updated_at) VALUES (?, ?, UTC_TIMESTAMP())')->execute(['installed_version', 'v0.2.4']);
                 $data = "<?php\nreturn " . var_export($_SESSION['install_db'], true) . ";\n";
                 if (file_put_contents($tmp, $data, LOCK_EX) === false || !@chmod($tmp, 0600) || !rename($tmp, $cfg)) {
                     throw new RuntimeException('Could not create the protected configuration file.');
                 }
                 $createdConfig = true;
-                if (file_put_contents($lock, "installed:v0.2.3\n", LOCK_EX) === false) { throw new RuntimeException('Could not lock the installer.'); }
+                if (file_put_contents($lock, "installed:v0.2.4\n", LOCK_EX) === false) { throw new RuntimeException('Could not lock the installer.'); }
                 $createdLock = true;
                 @chmod($lock, 0600);
                 $pdo->commit();
@@ -180,7 +180,7 @@ $steps = [1 => 'Requirements', 2 => 'Database', 3 => 'Administrator', 4 => 'Bran
 <body class="install-body"><main class="install-layout">
 <div class="install-heading"><div class="brand-glyph">M</div><div><span class="eyebrow">MONITOR SETUP</span><h1>Make it yours.</h1><p>Configure your monitoring platform in a few steps.</p></div></div>
 <ol class="install-steps"><?php foreach ($steps as $number => $label): ?><li class="<?= $number === $step ? 'current' : ($number < $step ? 'complete' : '') ?>"><span><?= $number ?></span><?= e($label) ?></li><?php endforeach; ?></ol>
-<section class="install-panel"><div class="panel-header"><div><span class="eyebrow">STEP <?= $step ?> OF 6</span><h2><?= e($steps[$step]) ?></h2></div><span class="pill pill-neutral">v0.2.2</span></div>
+<section class="install-panel"><div class="panel-header"><div><span class="eyebrow">STEP <?= $step ?> OF 6</span><h2><?= e($steps[$step]) ?></h2></div><span class="pill pill-neutral">v0.2.4</span></div>
 <?php if ($error): ?><div class="alert alert-error" role="alert"><?= e($error) ?></div><?php endif; ?>
 <form method="post" action="<?= e(url('install/index.php?step=' . $step)) ?>" enctype="multipart/form-data">
 <?= Security::csrfField() ?><input type="hidden" name="step" value="<?= $step ?>">

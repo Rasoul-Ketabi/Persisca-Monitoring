@@ -46,6 +46,6 @@ $test(str_contains($read('app/Services/PortalAuth.php'),'UPDATE portal_otp_codes
 $test(str_contains($read('app/Views/admin/system.php'),'MAIL DELIVERY') && !str_contains($read('app/Views/admin/system.php'),"Settings::get('smtp_password') ?></"),'Health displays mail state but no SMTP password');
 $test(str_contains($read('database/patches/v0.2.3.sql'),"ON DUPLICATE KEY UPDATE setting_key=setting_key"),'Migration preserves existing settings');
 $test(str_contains($read('database/schema.sql'),'CREATE TABLE IF NOT EXISTS settings'),'Fresh schema retains settings');
-$test(trim($read('VERSION'))==='v0.2.3' && str_contains($read('install/index.php'),"'installed_version', 'v0.2.3'"),'Version and fresh install metadata aligned');
+$test(trim($read('VERSION'))==='v0.2.4' && str_contains($read('install/index.php'),"'installed_version', 'v0.2.4'"),'Version and fresh install metadata aligned');
 echo ($count-$failed).'/'.$count.' passed'.PHP_EOL;
 exit($failed?1:0);

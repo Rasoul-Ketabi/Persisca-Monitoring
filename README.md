@@ -1,130 +1,65 @@
-# Monitor
+# Monitor v0.2.4
 
-**Free, self-hosted website uptime monitoring for PHP and MySQL/MariaDB.**
+Self-hosted native PHP + MySQL/MariaDB HTTP/HTTPS uptime monitoring, incident tracking, admin/Portal User roles, personal status pages, Telegram notifications and OTP login. Designed for shared hosting without Node, Composer, Docker or Redis.
 
-[![Version](https://img.shields.io/badge/version-v0.2.3-blue)](#releases)
-[![PHP](https://img.shields.io/badge/PHP-8.1%2B-777bb4)](#requirements)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-
-Monitor watches HTTP and HTTPS endpoints, tracks outages and recoveries, sends Telegram alerts, and publishes status pages. It includes an admin dashboard and a separate email-OTP portal for customers. The app runs on shared hosting without Docker, Node.js, Redis, Composer, or a dedicated daemon.
-
-> **Status: v0.2.3, code-verified update.** The project owner has tested earlier Monitor installations. This cumulative update passed code-level checks; live SMTP delivery and the Portal form fix should still be confirmed on the target host. Compatibility with every hosting provider and an independent security audit have not been established. See the [deployment checklist](docs/DEPLOYMENT-CHECKLIST.md).
-
-## Features
-
-| Area | What is included |
-| --- | --- |
-| Monitoring | Scheduled HTTP/HTTPS checks, expected response codes, configurable intervals, timeouts, retries and failure thresholds |
-| Incidents | Confirmed DOWN and RECOVERED transitions, outage duration, history, manual Test Now separated from scheduled monitoring |
-| Telegram | Up to 10 global admin destinations, delivery logs and retries; optional private-account linking and owner-scoped portal alerts |
-| Customer portal | Portal users with 6-digit email OTP login, monitor ownership, per-user quotas, monitor management, incidents and analytics |
-| Status pages | Global `/status/`, enabled personal `/status/{slug}/` pages, 30-day visual history, incident display, Open Graph metadata |
-| Analytics | 24h/7d/30d observed-check success metrics, response-time statistics/charts, hourly aggregation, data retention |
-| Administration | Super Admin and Admin roles, authorization, account management, system health and bounded maintenance operations |
-| Email delivery | **Native SMTP** (STARTTLS, SSL/TLS, AUTH PLAIN/LOGIN) or PHP `mail()`, sender settings, optional Reply-To, test email |
-| Appearance | Configurable brand name, logo, favicon, colors, footer and social preview |
-
-**Metric limitation:** Uptime displayed by Monitor is based on recorded scheduled checks, not a guarantee of continuous availability in unobserved minutes. No-data periods stay unknown. Telegram provider acceptance may occasionally be followed by a duplicate send if the worker crashes before logging delivery.
+**Current release:** `v0.2.4`, cumulative on accepted `v0.2.3` with Portal Add/Edit Monitor hotfix. The updated behavior is **exclusive owner-based Telegram routing**, not an additional Telegram linking implementation. **Release Candidate**: source-level tests passed; live Telegram owner routing must be verified on the deployment.
 
 ## Requirements
 
-- PHP **8.1 or later**, with `pdo_mysql`/PDO, cURL, JSON, `fileinfo`, OpenSSL/TLS and sessions.
-- MySQL/MariaDB with InnoDB; a new empty database for first installation.
-- Apache/LiteSpeed with rewrite and `.htaccess` rules, or a correctly configured nginx equivalent.
-- Access to a PHP CLI Cron task. **Every minute** is recommended.
-- Writable `config/`, `storage/`, `storage/cache/`, `storage/logs/` and `public/assets/uploads/`, using restrictive permissions.
-- For portal OTP: working SMTP relay (recommended) or server PHP `mail()` with a valid sender address.
-- For Telegram account linking: a publicly reachable HTTPS domain and Telegram webhook access.
+PHP 8.1+ with PDO MySQL, cURL/TLS, fileinfo, OpenSSL streams for SMTP, sessions, PHP CLI for cron, a writable protected `storage/`, and MySQL/MariaDB. Apache/LiteSpeed with `.htaccess` or equivalent web server protection. HTTPS is required for Portal Telegram account linking. Portal email OTP needs a configured mail relay or SMTP account.
 
-## New installation
+## Current features
 
-1. From [Releases](#releases), download **`monitor-install-v0.2.3.zip`**. Extract its **contents** directly into an empty website document root. Do not leave an extra ZIP-name wrapper folder.
-2. Create a **new empty** MySQL/MariaDB database and its user through cPanel/Plesk.
-3. Set PHP 8.1+ and required extensions; keep all `.htaccess` files.
-4. Open `https://YOUR-DOMAIN/install/`. Enter database details, configure branding and create the first **Super Admin** (minimum 8-character password).
-5. Log in at `/admin/login/` and check the Base URL and timezone.
-6. Create a CLI Cron task for `cron/monitor.php`, preferably **every minute**. Confirm the heartbeat in System Health.
-7. Add a monitor and run Test Now. For OTP delivery, configure **Mail Settings** and send a test email before switching portal emails to SMTP.
+- Scheduled HTTP/HTTPS checks, retries, timeouts, expected-status checks and diagnostic Test Now.
+- Confirmed DOWN and RECOVERY incidents, history and response/uptime analytics.
+- Multiple Admin/Super Admin accounts, per-user permissions, System Health and Maintenance.
+- Portal User OTP-only sign-in, separate sessions, monitor ownership, per-user quota and owner-scoped CRUD/history.
+- Global `/status/` for platform monitors and personal `/status/{slug}/` for opt-in public Portal User monitors.
+- Telegram multi-chat destinations for **platform-owned monitors only**, with individual delivery history and retries.
+- Telegram webhook and private account linking for Portal Users; **user-owned monitor alerts go only to the owning user, never to Admin/global destinations**, even when owner connection fails.
+- SMTP transactional email (STARTTLS, SSL/TLS, plain unauthenticated relay), From/Reply-To, test email and OTP integration.
+- White-label branding, configurable OG, resource limits/retention and installable shared-hosting operation.
 
-A fresh install uses `database/schema.sql` automatically. **Do not import upgrade SQL files during fresh installation.** Detailed instructions: [Installation Guide](docs/INSTALLATION.md).
+## Fresh installation
 
-### Cron examples
+1. Create an **empty** database and a database user.
+2. Extract `monitor-full-v0.2.4.zip` at the site Document Root with no wrapper directory.
+3. Open `https://YOUR-DOMAIN/install/`, follow the wizard and create the first Super Admin (8-character minimum password).
+4. Configure the Base URL, branding, timezone and outgoing email at `/admin/settings/mail/`; send a test email, then switch OTP transport to SMTP if desired.
+5. Configure scheduled monitoring cron, preferably every minute (adjust executable/path for your host):
 
 ```bash
-# cPanel (adjust username, directory and PHP CLI path)
+# cPanel
 /usr/local/bin/php /home/USERNAME/public_html/monitor/cron/monitor.php
-
-# Plesk (adjust the document root and installed PHP version)
-/opt/plesk/php/8.2/bin/php /var/www/vhosts/EXAMPLE.COM/httpdocs/cron/monitor.php
+# Plesk
+/opt/plesk/php/8.2/bin/php /var/www/vhosts/DOMAIN/httpdocs/cron/monitor.php
 ```
 
-## SMTP and OTP setup
+6. To enable Telegram, enter Bot Token and admin Chat IDs in `/admin/notifications/`. Configure the HTTPS webhook there so Portal Users can connect using `/account/telegram/`.
+7. Verify `/status/`, `/admin/` and `/account/login/`. Do not rerun the installer after installation.
 
-1. Sign in as Super Admin and open **`/admin/settings/mail/`**.
-2. Select **SMTP** and provide Host, Port, Encryption, Authentication, Username and Password. Typical configurations: port **587 + STARTTLS** or **465 + SSL/TLS**.
-3. Set **From Email** and **From Name**, plus an optional Reply-To address. Save.
-4. Use **Send Test Email** and check that the receiving mailbox gets the message. SMTP test delivery can be performed before using SMTP for OTP.
-5. After verification, choose SMTP as the active mail transport and test login at **`/account/login/`**.
+## Upgrade from accepted v0.2.3 (Portal Hotfix included)
 
-**Existing installations stay on PHP `mail()` until you explicitly change the mail transport.** Saved SMTP passwords are not shown in the form. They are stored in the application database without at-rest encryption; protect DB access and backups. SMTP acceptance does not guarantee Inbox placement. Configure SPF, DKIM and DMARC for your sender domain.
+1. Back up files and database and **pause cron**.
+2. Run `monitor-sql-patch-v0.2.4.sql` once through phpMyAdmin. This marks incorrectly scoped *unsent* Telegram deliveries terminal and updates version metadata. It does not change table structure or delete history.
+3. Extract `monitor-patch-v0.2.4.zip` into the current Document Root and overwrite matching source files. Do **not** replace `config/database.php`, `storage/installed.lock`, uploaded branding assets, or server runtime logs.
+4. Resume cron; if OPcache is active, invalidate old PHP bytecode. Verify login/SMTP/Telegram and test platform-owned and portal-owned DOWN and RECOVERY separately.
 
-## Main routes
+**Earlier than v0.2.3?** Apply the intervening migrations/releases first. Never import `database/schema.sql` over an existing installation.
 
-| Route | Description |
-| --- | --- |
-| `/admin/` | Admin dashboard |
-| `/admin/monitors/` | Monitor management |
-| `/admin/incidents/` | Incidents |
-| `/admin/notifications/` | Telegram settings, multi-destination alerts and webhook setup |
-| `/admin/settings/mail/` | **Super Admin SMTP and test email settings** |
-| `/admin/portal-users/` | Portal account and quota management |
-| `/admin/users/` | Admin user management |
-| `/admin/maintenance/` | Maintenance and health checks |
-| `/account/login/` | Portal OTP login |
-| `/account/monitors/add/` | **Portal Add Monitor form (v0.2.3 hotfix included)** |
-| `/account/monitors/edit/` | Portal Edit Monitor form (v0.2.3 hotfix included) |
-| `/account/telegram/` | Personal Telegram linking |
-| `/account/status-page/` | Personal public-page settings |
-| `/status/` | Global public status |
-| `/status/{slug}/` | Enabled owner-scoped public page |
+## Telegram delivery policy
 
-## Upgrading from v0.2.2
+| Monitor owner | Alerts delivered to | Other destination |
+|---|---|---|
+| Platform (`portal_user_id IS NULL`) | Configured Admin Chat ID(s) | No Portal User |
+| Portal User (`portal_user_id = N`) | Only connected Telegram of user `N` | No Admin fallback; no other Portal User |
 
-The v0.2.3 update combines **SMTP infrastructure** and the **Portal Add/Edit Monitor 500-error fix**. To upgrade directly from **v0.2.2**:
+Personal delivery is independent of the global Telegram toggle, but requires the shared Bot Token, connected/active owner, personal notification preference and per-monitor alert setting. If the owner is unavailable, the user-scoped notification is logged as failed; admins are **not** substituted. Old pending cross-owner rows are rejected before they can be delivered. A repeated outage does not create a new logical event.
 
-1. Back up site files and DB; pause Cron during the upgrade.
-2. Apply `monitor-sql-patch-v0.2.3.sql` **once** in phpMyAdmin.
-3. Extract `monitor-update-v0.2.2-to-v0.2.3.zip` into the **existing application root**, allowing overwrite.
-4. Resume Cron and test Mail Settings, Send Test Email, OTP login, Portal Add Monitor and Edit Monitor.
+## Security, support and limitations
 
-**Already installed v0.2.3 with the Portal Hotfix?** No upgrade is required. **Installed v0.2.3 SMTP but not the Portal Hotfix?** Use only the small `monitor-hotfix-v0.2.3-portal-add-monitor.zip` and skip SQL. See [UPGRADING.md](docs/UPGRADING.md).
+Passwords use hashing and session revalidation, admin actions enforce roles and CSRF, user monitor queries require ownership checks, public status data is opt-in, and the Telegram webhook validates its secret header. Never publish database credentials, Telegram tokens, SMTP passwords, installed locks or session/log files. The database settings table holds protected-but-not-encrypted-at-rest SMTP/Telegram secrets: secure DB access and backups.
 
-Do not rerun `/install/`, import `database/schema.sql` into an existing DB, or upload the full installer over a running installation without a backup.
+SMTP acceptance does not guarantee delivery to inboxes: verify SPF, DKIM, DMARC and provider policies. Telegram delivery retries are at-least-once, so a crash between Telegram acceptance and outbox commit can repeat a message. Real shared-host testing and production Telegram webhook verification are still required for this release.
 
-## Security and deployment
-
-- Never commit `config/database.php`, `storage/installed.lock`, database dumps, SMTP/Telegram tokens, OTP codes, customer uploads or runtime logs. `.gitignore` excludes common local files.
-- Protected source and runtime folders must not be web-accessible. Apache protections are provided; nginx requires equivalent deny rules.
-- Only Super Admin can modify SMTP credentials. Portal users can access only their owned monitors.
-- Keep HTTPS enabled. Avoid enabling network-private monitor targets for untrusted users.
-- See [SECURITY.md](SECURITY.md) and [Deployment Checklist](docs/DEPLOYMENT-CHECKLIST.md).
-
-## Documentation
-
-- [Installation and Cron](docs/INSTALLATION.md)
-- [Configuration and SMTP](docs/CONFIGURATION.md)
-- [Upgrading](docs/UPGRADING.md)
-- [Deployment Checklist](docs/DEPLOYMENT-CHECKLIST.md)
-- [FAQ](docs/FAQ.md)
-- [Technical Reference](docs/TECHNICAL-REFERENCE.md)
-- [Security](SECURITY.md)
-- [Contributing](CONTRIBUTING.md)
-- [Changelog](CHANGELOG.md)
-
-## Releases
-
-The current tag is **`v0.2.3`**, titled **"Monitor v0.2.3 | SMTP & Portal Monitor Fix"**. It is an update to the earlier GitHub v0.2.2 release. Download the install ZIP for a new site or the cumulative update ZIP and SQL for an existing v0.2.2 site. See [Release Notes](RELEASE-NOTES-v0.2.3.md).
-
-## License
-
-Open source under the [MIT License](LICENSE). The copyright line in LICENSE belongs to Persisca Technologies. Verify redistribution rights for any bundled images or assets and replace them if necessary.
+See `MONITOR-FULL-PROJECT-v0.2.4.md` for full routes, file tree, schema, migration rules and test coverage.
